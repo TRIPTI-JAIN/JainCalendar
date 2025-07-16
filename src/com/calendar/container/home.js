@@ -100,7 +100,9 @@ const Home = () => {
           </View>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.headerText}>🌞 Sunrise & Sunset Tracker</Text>
+            <Text style={styles.headerText}>
+              🌞 Sunrise & Sunset Tracker App
+            </Text>
           </View>
 
           {/* Info Section */}
