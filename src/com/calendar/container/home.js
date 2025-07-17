@@ -7,6 +7,7 @@ import {
   Platform,
   PermissionsAndroid,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import Geolocation from 'react-native-geolocation-service';
