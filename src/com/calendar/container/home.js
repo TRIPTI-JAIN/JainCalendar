@@ -97,7 +97,6 @@ const Home = () => {
               <Icon name="menu" size={24} color="#fff" />
             </TouchableOpacity>
             {/* <Text style={styles.headerTitle}>Home</Text> */}
-            <View style={{ width: 24 }} /> {/* Empty space for right icon */}
           </View>
 
           <View style={styles.sectionHeader}>
@@ -125,7 +124,7 @@ const Home = () => {
               <Text style={styles.value}>{sunset || 'Loading...'}</Text>
             </View>
             <View style={styles.calendarWrapper}>
-              {/* <PanchangCalendar /> */}
+              <PanchangCalendar />
             </View>
           </View>
         </View>
