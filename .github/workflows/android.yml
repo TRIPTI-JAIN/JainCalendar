@@ -32,13 +32,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🤖 Build Android
+      - name: 🏗️ Build Android APK
         run: |
           cd android
           ./gradlew assembleRelease
 
+      - name: 📁 Check if APK exists (for debug)
+        run: |
+          ls -R android/app/build/outputs/apk/release
+
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release.apk
+          name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
