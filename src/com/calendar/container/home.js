@@ -124,7 +124,7 @@ const Home = () => {
               <Text style={styles.value}>{sunset || 'Loading...'}</Text>
             </View>
             <View style={styles.calendarWrapper}>
-              <PanchangCalendar />
+              {/* <PanchangCalendar /> */}
             </View>
           </View>
         </View>

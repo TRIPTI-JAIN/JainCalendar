@@ -3,6 +3,7 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import Splash from '../container/splash';
 import Home from '../container/home';
 import About from '../container/about';
+import QRCodeScreen from '../container/QRCode';
 import { createStackNavigator } from '@react-navigation/stack';
 import {
   View,
@@ -40,6 +41,12 @@ function CustomDrawerContent({ navigation }) {
         onPress={() => navigation.navigate('Splash')}
       >
         <Text style={styles.drawerText}>🚀 Splash</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.drawerItem}
+        onPress={() => navigation.navigate('QRCodeScreen')}
+      >
+        <Text style={styles.drawerText}>🚀 QR Code</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.drawerItem}
@@ -84,6 +91,11 @@ export default function DrawerNavigator() {
       <Drawer.Screen
         name="About"
         component={About}
+        options={{ headerShown: false }}
+      />
+      <Drawer.Screen
+        name="QRCodeScreen"
+        component={QRCodeScreen}
         options={{ headerShown: false }}
       />
     </Drawer.Navigator>
