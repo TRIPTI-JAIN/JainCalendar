@@ -84,8 +84,17 @@ export const getSunriseSunset = async (lat, lon) => {
     );
     const data = await response.json();
     if (data.status === 'OK') {
-      const sunrise = new Date(data.results.sunrise).toLocaleTimeString();
-      const sunset = new Date(data.results.sunset).toLocaleTimeString();
+      // Force a predictable 12-hour format across iOS/Android locales.
+      const formatLocalTime = isoTime =>
+        new Date(isoTime).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+      const sunrise = formatLocalTime(data.results.sunrise);
+      const sunset = formatLocalTime(data.results.sunset);
       return { sunrise, sunset };
     } else {
       console.warn('API error:', data.status);
@@ -135,16 +144,21 @@ export const getQuarterAfterSunrise = (sunriseStr, sunsetStr) => {
       .replace(/\u202F/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-    const [time, modifier] = cleanedTimeStr.split(' ');
-
-    if (!time || !modifier) {
+    const [time, modifierRaw] = cleanedTimeStr.split(' ');
+    if (!time) {
       console.error('Malformed time format:', timeStr);
       return null;
     }
+    let modifier = modifierRaw ? modifierRaw.toUpperCase() : null;
 
     let [hours, minutes, seconds] = time.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) {
+      console.error('Malformed numeric time:', timeStr);
+      return null;
+    }
     seconds = isNaN(seconds) ? 0 : seconds;
 
+    // Handle 24h strings from some Android locales where AM/PM is omitted.
     if (modifier === 'PM' && hours !== 12) hours += 12;
     if (modifier === 'AM' && hours === 12) hours = 0;
 
@@ -186,14 +200,18 @@ export const addMinutesToSunrise = (sunriseStr, minutesToAdd = 48) => {
       .replace(/\u202F/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-    const [time, modifier] = cleaned.split(' ');
-
-    if (!time || !modifier) {
+    const [time, modifierRaw] = cleaned.split(' ');
+    if (!time) {
       console.error('Malformed time format:', timeStr);
       return null;
     }
+    const modifier = modifierRaw ? modifierRaw.toUpperCase() : null;
 
     let [hours, minutes, seconds] = time.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) {
+      console.error('Malformed numeric time:', timeStr);
+      return null;
+    }
     seconds = isNaN(seconds) ? 0 : seconds;
 
     if (modifier === 'PM' && hours !== 12) hours += 12;

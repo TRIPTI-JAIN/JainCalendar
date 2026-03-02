@@ -4,9 +4,9 @@ import Splash from '../container/splash';
 import Home from '../container/home';
 import About from '../container/about';
 import QRCodeScreen from '../container/QRCode';
+import PanchangCalendar from '../container/panchangCalendar';
 import { createStackNavigator } from '@react-navigation/stack';
 import {
-  View,
   Text,
   TouchableOpacity,
   StyleSheet,
@@ -44,6 +44,12 @@ function CustomDrawerContent({ navigation }) {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.drawerItem}
+        onPress={() => navigation.navigate('Calendar')}
+      >
+        <Text style={styles.drawerText}>🗓 Calendar</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.drawerItem}
         onPress={() => navigation.navigate('QRCodeScreen')}
       >
         <Text style={styles.drawerText}>🚀 QR Code</Text>
@@ -58,11 +64,13 @@ function CustomDrawerContent({ navigation }) {
   );
 }
 
+const renderDrawerContent = props => <CustomDrawerContent {...props} />;
+
 // Main Drawer Navigator
 export default function DrawerNavigator() {
   return (
     <Drawer.Navigator
-      drawerContent={props => <CustomDrawerContent {...props} />}
+      drawerContent={renderDrawerContent}
       screenOptions={{
         drawerStyle: {
           backgroundColor: '#000', // full black background
@@ -86,6 +94,11 @@ export default function DrawerNavigator() {
       <Drawer.Screen
         name="Splash"
         component={Splash}
+        options={{ headerShown: false }}
+      />
+      <Drawer.Screen
+        name="Calendar"
+        component={PanchangCalendar}
         options={{ headerShown: false }}
       />
       <Drawer.Screen

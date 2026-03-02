@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,16 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import QRCode from 'react-native-qrcode-svg';
+// import QRCode from 'react-native-qrcode-svg';
 import Icon from 'react-native-vector-icons/Feather';
 import { storage } from '../utility/mmkvStorage';
-
-const QRCodeScreen = ({ name = 'Tripti Jain', amount = '40' }) => {
+import ViewShot from 'react-native-view-shot';
+import Share from 'react-native-share';
+const QRCodeScreen = ({ name = 'Tripti Jain' }) => {
   const [upiIdInput, setUpiIdInput] = useState('');
   const [upiId, setUpiId] = useState('');
+  const [amount, setAmount] = useState('40'); // single amount state
+  const qrRef = useRef(null);
   const navigation = useNavigation();
   const isFocused = useIsFocused();
 
@@ -36,6 +39,23 @@ const QRCodeScreen = ({ name = 'Tripti Jain', amount = '40' }) => {
   const upiUri = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(
     name,
   )}&am=${amount}&cu=INR`;
+
+  const shareQR = async () => {
+    try {
+      if (!qrRef.current) {
+        console.warn('QR view not ready yet');
+        return;
+      }
+      const uri = await qrRef.current.capture();
+      await Share.open({
+        title: 'Share UPI QR',
+        url: uri,
+        type: 'image/png',
+      });
+    } catch (error) {
+      console.log('Share error:', error);
+    }
+  };
 
   if (!upiId) {
     return (
@@ -82,19 +102,39 @@ const QRCodeScreen = ({ name = 'Tripti Jain', amount = '40' }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.container}>
-        <Text style={styles.title}>Pay ₹{amount} via GPay</Text>
-        <QRCode value={upiUri} size={220} />
-        <Text style={styles.info}>Scan using any UPI app</Text>
-        <Text style={styles.upi}>UPI ID: {upiId}</Text>
+      <ViewShot ref={qrRef} options={{ format: 'png', quality: 1 }}>
+        <View style={[styles.container, { width: '100%' }]}>
+          <Text style={styles.title}>Pay ₹{amount || 0} via GPay</Text>
 
-        <TouchableOpacity
-          onPress={() => setUpiId('')}
-          style={[styles.button, { marginTop: 20 }]}
-        >
-          <Text style={styles.buttonText}>Change UPI ID</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Amount Input */}
+          <View style={{ paddingVertical: 20, width: '100%' }}>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter amount"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+            />
+          </View>
+
+          {/* <QRCode value={upiUri} size={220} /> */}
+
+          <Text style={styles.info}>Scan using any UPI app</Text>
+          <Text style={styles.upi}>UPI ID: {upiId}</Text>
+          <TouchableOpacity
+            onPress={shareQR}
+            style={[styles.button, { marginTop: 20 }]}
+          >
+            <Text style={styles.buttonText}>Share QR Code</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setUpiId('')}
+            style={[styles.button, { marginTop: 20 }]}
+          >
+            <Text style={styles.buttonText}>Change UPI ID</Text>
+          </TouchableOpacity>
+        </View>
+      </ViewShot>
     </View>
   );
 };
@@ -144,7 +184,6 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
   },
-
   label: {
     fontSize: 16,
     marginBottom: 10,
@@ -156,6 +195,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 8,
     fontSize: 16,
+    width: '90%',
   },
   button: {
     backgroundColor: '#000',
