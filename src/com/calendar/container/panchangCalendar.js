@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import moment from 'moment';
 import {
   DEFAULT_COORDS,
@@ -20,12 +20,19 @@ import {
   buildYearFestivals,
   findDayByQuery,
 } from '../utility/jainData';
+import { readAppState } from '../utility/appStorage';
+import {
+  formatLocalizedDate,
+  formatMonthYear,
+  getCopy,
+  translateDaySummary,
+} from '../utility/i18n';
 
 const width = Dimensions.get('window').width;
 const cellW = Math.max(44, (width - 40) / 7);
 const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function PanchangCalendar({ lat, lon }) {
+export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
   const navigation = useNavigation();
   const [current, setCurrent] = useState(moment());
   const [monthData, setMonthData] = useState([]);
@@ -34,6 +41,33 @@ export default function PanchangCalendar({ lat, lon }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [locale, setLocale] = useState(localeProp || 'en');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+
+      const loadLocale = async () => {
+        if (localeProp) {
+          if (active) setLocale(localeProp);
+          return;
+        }
+
+        const state = await readAppState();
+        if (active) {
+          setLocale(state.locale || 'en');
+        }
+      };
+
+      loadLocale();
+
+      return () => {
+        active = false;
+      };
+    }, [localeProp]),
+  );
+
+  const copy = getCopy('calendar', locale);
 
   useEffect(() => {
     setLoading(true);
@@ -82,6 +116,17 @@ export default function PanchangCalendar({ lat, lon }) {
     }
   };
 
+  const openFestivalDetail = item => {
+    if (!item?.festival) return;
+
+    navigation.navigate('FestivalDetail', {
+      festival: item.festival,
+      festivalId: item.festival.id,
+      date: item.date,
+      tithi: item.tithi,
+    });
+  };
+
   const renderHeader = () =>
     days.map(day => (
       <View key={day} style={[styles.cell, styles.headerCell]}>
@@ -91,6 +136,7 @@ export default function PanchangCalendar({ lat, lon }) {
 
   const renderCell = ({ item }) => {
     if (!item) return <View style={[styles.cell, styles.emptyCell]} />;
+    const localizedItem = translateDaySummary(item, locale);
 
     const dayNumber = moment(item.date).date();
     const isToday = item.date === moment().format('YYYY-MM-DD');
@@ -107,10 +153,10 @@ export default function PanchangCalendar({ lat, lon }) {
         onPress={() => setSelected(item)}
       >
         <Text style={styles.dn}>{dayNumber}</Text>
-        {item.festival ? <View style={styles.festivalDot} /> : null}
-        {item.fasting ? <View style={styles.fastingDot} /> : null}
+        {localizedItem.festival ? <View style={styles.festivalDot} /> : null}
+        {localizedItem.fasting ? <View style={styles.fastingDot} /> : null}
         <Text style={styles.tithi} numberOfLines={1}>
-          {item.tithi}
+          {localizedItem.tithi}
         </Text>
       </TouchableOpacity>
     );
@@ -150,7 +196,7 @@ export default function PanchangCalendar({ lat, lon }) {
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.backButtonText}>{'< Back'}</Text>
+              <Text style={styles.backButtonText}>{copy.back}</Text>
             </TouchableOpacity>
           ) : null}
           <View style={styles.monthRow}>
@@ -158,14 +204,16 @@ export default function PanchangCalendar({ lat, lon }) {
               style={styles.navButton}
               onPress={() => setCurrent(value => moment(value).subtract(1, 'month'))}
             >
-              <Text style={styles.navText}>{'< Prev'}</Text>
+              <Text style={styles.navText}>{copy.prev}</Text>
             </TouchableOpacity>
-            <Text style={styles.monthTitle}>{current.format('MMMM YYYY')}</Text>
+            <Text style={styles.monthTitle}>
+              {formatMonthYear(current.toDate(), locale)}
+            </Text>
             <TouchableOpacity
               style={styles.navButton}
               onPress={() => setCurrent(value => moment(value).add(1, 'month'))}
             >
-              <Text style={styles.navText}>{'Next >'}</Text>
+              <Text style={styles.navText}>{copy.next}</Text>
             </TouchableOpacity>
           </View>
 
@@ -173,29 +221,29 @@ export default function PanchangCalendar({ lat, lon }) {
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search date, tithi, festival"
+              placeholder={copy.searchPlaceholder}
               placeholderTextColor="#8391ab"
               style={styles.searchInput}
               returnKeyType="search"
               onSubmitEditing={handleSearch}
             />
             <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-              <Text style={styles.searchButtonText}>Go</Text>
+              <Text style={styles.searchButtonText}>{copy.go}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={styles.festivalDotLegend} />
-              <Text style={styles.legendText}>Festival</Text>
+              <Text style={styles.legendText}>{copy.festival}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={styles.fastingDotLegend} />
-              <Text style={styles.legendText}>Fasting</Text>
+              <Text style={styles.legendText}>{copy.fasting}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={styles.todayLegend} />
-              <Text style={styles.legendText}>Today</Text>
+              <Text style={styles.legendText}>{copy.today}</Text>
             </View>
           </View>
 
@@ -210,50 +258,75 @@ export default function PanchangCalendar({ lat, lon }) {
 
           {selected ? (
             <View style={styles.detail}>
+              {(() => {
+                const localizedSelected = translateDaySummary(selected, locale);
+                return (
+                  <>
               <Text style={styles.detailDate}>
-                {moment(selected.date).format('dddd, MMM D')}
+                {formatLocalizedDate(selected.date, locale, {
+                  weekday: 'long',
+                  month: 'short',
+                  day: 'numeric',
+                })}
               </Text>
-              <Text style={styles.detailText}>Tithi: {selected.tithi}</Text>
-              <Text style={styles.detailText}>Paksha: {selected.paksha}</Text>
               <Text style={styles.detailText}>
-                Lunar Month: {selected.moonMasa}
+                {copy.tithi}: {localizedSelected.tithi}
               </Text>
-              <Text style={styles.detailText}>Sunrise: {selected.sunriseLabel}</Text>
-              <Text style={styles.detailText}>Sunset: {selected.sunsetLabel}</Text>
-              {selected.festival ? (
-                <Text style={styles.detailFest}>
-                  Festival: {selected.festival.title}
-                </Text>
+              <Text style={styles.detailText}>
+                {copy.paksha}: {localizedSelected.paksha}
+              </Text>
+              <Text style={styles.detailText}>
+                {copy.lunarMonth}: {localizedSelected.moonMasa}
+              </Text>
+              <Text style={styles.detailText}>
+                {copy.sunrise}: {selected.sunriseLabel}
+              </Text>
+              <Text style={styles.detailText}>
+                {copy.sunset}: {selected.sunsetLabel}
+              </Text>
+              {localizedSelected.festival ? (
+                <TouchableOpacity onPress={() => openFestivalDetail(selected)}>
+                  <Text style={styles.detailFest}>
+                    {copy.festival}: {localizedSelected.festival.title}
+                  </Text>
+                </TouchableOpacity>
               ) : null}
-              {selected.fasting ? (
+              {localizedSelected.fasting ? (
                 <Text style={styles.detailFast}>
-                  Fasting: {selected.fasting.title}
+                  {copy.fasting}: {localizedSelected.fasting.title}
                 </Text>
               ) : null}
+                  </>
+                );
+              })()}
             </View>
           ) : null}
 
           <View style={styles.yearSection}>
-            <Text style={styles.yearTitle}>Year Festival View</Text>
+            <Text style={styles.yearTitle}>{copy.yearFestivalView}</Text>
             {yearFestivals.slice(0, 8).map(item => (
+              (() => {
+                const localizedItem = translateDaySummary(item, locale);
+                return (
               <TouchableOpacity
                 key={`${item.date}-${item.festival?.id}`}
                 style={styles.yearRow}
                 onPress={() => {
-                  setCurrent(moment(item.date));
-                  setSelected(item);
+                  openFestivalDetail(item);
                 }}
               >
                 <View style={styles.yearContent}>
                   <Text style={styles.yearFestivalName}>
-                    {item.festival?.title}
+                    {localizedItem.festival?.title}
                   </Text>
                   <Text style={styles.yearFestivalMeta}>
-                    {moment(item.date).format('MMM D, YYYY')} · {item.tithi}
+                    {formatLocalizedDate(item.date, locale)} · {localizedItem.tithi}
                   </Text>
                 </View>
-                <Text style={styles.yearFestivalArrow}>View</Text>
+                <Text style={styles.yearFestivalArrow}>{copy.view}</Text>
               </TouchableOpacity>
+                );
+              })()
             ))}
           </View>
         </View>

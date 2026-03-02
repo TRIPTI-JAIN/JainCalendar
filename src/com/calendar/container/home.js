@@ -36,56 +36,14 @@ import {
   buildDaySummary,
   buildUpcomingFestivals,
 } from '../utility/jainData';
+import {
+  formatLocalizedDate,
+  getCopy,
+  translateDaySummary,
+  translateFastingTitle,
+} from '../utility/i18n';
 
 const TODAY_KEY = moment().format('YYYY-MM-DD');
-
-const TRANSLATIONS = {
-  en: {
-    title: 'Daily Jain Dashboard',
-    refresh: 'Refresh',
-    retry: 'Retry',
-    openSettings: 'Open Settings',
-    liveDataError: 'Unable to load live data',
-    upcomingFestivals: 'Upcoming Festivals',
-    fastingAssistant: 'Fasting Assistant',
-    reminderSettings: 'Reminder Settings',
-    cityManager: 'Saved Cities',
-    notes: 'Jain Notes / Journal',
-    share: 'Share Today Card',
-    yearView: 'Year and Search View',
-    language: 'Language',
-  },
-  hi: {
-    title: 'दैनिक जैन डैशबोर्ड',
-    refresh: 'रीफ्रेश',
-    retry: 'फिर प्रयास करें',
-    openSettings: 'सेटिंग खोलें',
-    liveDataError: 'लाइव डेटा लोड नहीं हुआ',
-    upcomingFestivals: 'आने वाले पर्व',
-    fastingAssistant: 'उपवास सहायक',
-    reminderSettings: 'रिमाइंडर सेटिंग',
-    cityManager: 'सेव किए शहर',
-    notes: 'जैन नोट्स / जर्नल',
-    share: 'आज का कार्ड शेयर करें',
-    yearView: 'वार्षिक और खोज दृश्य',
-    language: 'भाषा',
-  },
-  gu: {
-    title: 'દૈનિક જૈન ડેશબોર્ડ',
-    refresh: 'રિફ્રેશ',
-    retry: 'ફરી પ્રયાસ કરો',
-    openSettings: 'સેટિંગ ખોલો',
-    liveDataError: 'લાઇવ ડેટા લોડ થયો નથી',
-    upcomingFestivals: 'આવતા પર્વો',
-    fastingAssistant: 'ઉપવાસ સહાયક',
-    reminderSettings: 'રિમાઇન્ડર સેટિંગ',
-    cityManager: 'સેવ કરેલા શહેરો',
-    notes: 'જૈન નોંધ / જર્નલ',
-    share: 'આજનો કાર્ડ શેર કરો',
-    yearView: 'વર્ષ અને શોધ દૃશ્ય',
-    language: 'ભાષા',
-  },
-};
 
 const FASTING_OPTIONS = ['None', 'Upvas', 'Ekasana', 'Beasana'];
 
@@ -112,7 +70,7 @@ const Home = () => {
   const [newCityLon, setNewCityLon] = useState('');
 
   const locale = appState.locale || 'en';
-  const copy = TRANSLATIONS[locale] || TRANSLATIONS.en;
+  const copy = getCopy('home', locale);
   const activeCity =
     appState.cities.find(city => city.id === appState.activeCityId) ||
     appState.cities[0] ||
@@ -127,8 +85,16 @@ const Home = () => {
       activeCity.lat || DEFAULT_COORDS.lat,
       activeCity.lon || DEFAULT_COORDS.lon,
       180,
-    ).slice(0, 6);
-  }, [activeCity]);
+    )
+      .slice(0, 6)
+      .map(item => translateDaySummary(item, locale));
+  }, [activeCity, locale]);
+
+  const localizedToday = useMemo(
+    () =>
+      dashboard?.today ? translateDaySummary(dashboard.today, locale) : null,
+    [dashboard, locale],
+  );
 
   useEffect(() => {
     bootstrap();
@@ -511,6 +477,18 @@ const Home = () => {
     await persistAppState(nextState);
   };
 
+  const openFestivalDetail = item => {
+    if (!item?.festival) return;
+
+    navigation.navigate('FestivalDetail', {
+      festival: item.festival,
+      festivalId: item.festival.id,
+      date: item.date,
+      tithi: item.tithi,
+      cityName: dashboard?.cityName || activeCity?.name,
+    });
+  };
+
   const handleFastingChange = async value => {
     await updateAppState({
       ...appState,
@@ -604,7 +582,12 @@ const Home = () => {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()}>
+          <TouchableOpacity
+            onPress={() => navigation.openDrawer()}
+            style={styles.menuButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.8}
+          >
             <View style={styles.hamburgerIcon}>
               <View style={styles.hamburgerLine} />
               <View style={styles.hamburgerLine} />
@@ -643,8 +626,8 @@ const Home = () => {
           </View>
           <Text style={styles.heroTitle}>{copy.title}</Text>
           <Text style={styles.heroSubtitle}>
-            Today&apos;s tithi, fasting context, reminders, saved cities, notes,
-            and shareable summary in one place.
+            {copy.today}, {copy.tithi}, {copy.festival}, reminders, saved
+            cities, notes, and a shareable summary in one place.
           </Text>
         </View>
 
@@ -652,34 +635,44 @@ const Home = () => {
 
         {dashboard ? (
           <>
-            <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }}>
+            <ViewShot
+              ref={shareCardRef}
+              options={{ format: 'png', quality: 1 }}
+            >
               <View style={styles.shareCard}>
-                <Text style={styles.shareDate}>{dashboard.today.displayDate}</Text>
+                <Text style={styles.shareDate}>
+                  {dashboard.today.displayDate}
+                </Text>
                 <Text style={styles.shareCity}>{dashboard.cityName}</Text>
                 <Text style={styles.shareHeadline}>
-                  {dashboard.today.tithi} · {dashboard.today.paksha}
+                  {localizedToday?.tithi || dashboard.today.tithi} ·{' '}
+                  {localizedToday?.paksha || dashboard.today.paksha}
                 </Text>
                 <View style={styles.metricGrid}>
                   <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>Sunrise</Text>
+                    <Text style={styles.metricLabel}>{copy.sunrise}</Text>
                     <Text style={styles.metricValue}>{dashboard.sunrise}</Text>
                   </View>
                   <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>Sunset</Text>
+                    <Text style={styles.metricLabel}>{copy.sunset}</Text>
                     <Text style={styles.metricValue}>{dashboard.sunset}</Text>
                   </View>
                   <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>Navkarsi</Text>
-                    <Text style={styles.metricValue}>{dashboard.navkarsiTime}</Text>
+                    <Text style={styles.metricLabel}>{copy.navkarsi}</Text>
+                    <Text style={styles.metricValue}>
+                      {dashboard.navkarsiTime}
+                    </Text>
                   </View>
                   <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>Porsi</Text>
-                    <Text style={styles.metricValue}>{dashboard.porsiTime}</Text>
+                    <Text style={styles.metricLabel}>{copy.porsi}</Text>
+                    <Text style={styles.metricValue}>
+                      {dashboard.porsiTime}
+                    </Text>
                   </View>
                 </View>
-                {dashboard.today.festival ? (
+                {localizedToday?.festival ? (
                   <Text style={styles.shareFestival}>
-                    Festival: {dashboard.today.festival.title}
+                    {copy.festival}: {localizedToday.festival.title}
                   </Text>
                 ) : null}
                 <Text style={styles.shareFooter}>
@@ -689,17 +682,23 @@ const Home = () => {
               </View>
             </ViewShot>
 
-            <TouchableOpacity onPress={handleShare} style={styles.primaryButton}>
+            <TouchableOpacity
+              onPress={handleShare}
+              style={styles.primaryButton}
+            >
               <Text style={styles.primaryButtonText}>{copy.share}</Text>
             </TouchableOpacity>
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{dashboard.cityName}</Text>
               <Text style={styles.supportingText}>
-                {usingCachedData ? 'Offline-first cache in use.' : 'Live city dashboard.'}
+                {usingCachedData
+                  ? 'Offline-first cache in use.'
+                  : 'Live city dashboard.'}
               </Text>
               <Text style={styles.supportingText}>
-                Updated {moment(dashboard.updatedAt).format('MMM D, YYYY hh:mm A')}
+                Updated{' '}
+                {moment(dashboard.updatedAt).format('MMM D, YYYY hh:mm A')}
               </Text>
               {errorMessage ? (
                 <Text style={styles.warningText}>{errorMessage}</Text>
@@ -707,76 +706,102 @@ const Home = () => {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Today</Text>
+              <Text style={styles.sectionTitle}>{copy.today}</Text>
               <View style={styles.metricGrid}>
                 <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>Tithi</Text>
-                  <Text style={styles.metricValue}>{dashboard.today.tithi}</Text>
+                  <Text style={styles.metricLabel}>{copy.tithi}</Text>
+                  <Text style={styles.metricValue}>
+                    {localizedToday?.tithi}
+                  </Text>
                 </View>
                 <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>Paksha</Text>
-                  <Text style={styles.metricValue}>{dashboard.today.paksha}</Text>
+                  <Text style={styles.metricLabel}>{copy.paksha}</Text>
+                  <Text style={styles.metricValue}>
+                    {localizedToday?.paksha}
+                  </Text>
                 </View>
                 <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>Sunrise</Text>
+                  <Text style={styles.metricLabel}>{copy.sunrise}</Text>
                   <Text style={styles.metricValue}>{dashboard.sunrise}</Text>
                 </View>
                 <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>Sunset</Text>
+                  <Text style={styles.metricLabel}>{copy.sunset}</Text>
                   <Text style={styles.metricValue}>{dashboard.sunset}</Text>
                 </View>
                 <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>Navkarsi</Text>
-                  <Text style={styles.metricValue}>{dashboard.navkarsiTime}</Text>
+                  <Text style={styles.metricLabel}>{copy.navkarsi}</Text>
+                  <Text style={styles.metricValue}>
+                    {dashboard.navkarsiTime}
+                  </Text>
                 </View>
                 <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>Porsi</Text>
+                  <Text style={styles.metricLabel}>{copy.porsi}</Text>
                   <Text style={styles.metricValue}>{dashboard.porsiTime}</Text>
                 </View>
               </View>
               <Text style={styles.supportingText}>
-                Lunar month: {dashboard.today.moonMasa}
+                {copy.lunarMonth}: {localizedToday?.moonMasa}
               </Text>
-              <Text style={styles.supportingText}>
-                Festival: {dashboard.today.festival?.title || 'None today'}
-              </Text>
-              {dashboard.today.festival ? (
+              {localizedToday?.festival ? (
+                <TouchableOpacity
+                  onPress={() => openFestivalDetail(dashboard.today)}
+                >
+                  <Text style={[styles.supportingText, styles.linkText]}>
+                    {copy.festival}: {localizedToday.festival.title}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.supportingText}>
+                  {copy.festival}: {copy.noneToday}
+                </Text>
+              )}
+              {localizedToday?.festival ? (
                 <Text style={styles.detailHighlight}>
-                  {dashboard.today.festival.significance}
+                  {localizedToday.festival.significance}
                 </Text>
               ) : null}
               <Text style={styles.supportingText}>
-                Fasting marker: {dashboard.today.fasting?.title || 'No marker'}
+                {copy.fastingMarker}:{' '}
+                {localizedToday?.fasting?.title || copy.noMarker}
               </Text>
             </View>
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{copy.upcomingFestivals}</Text>
               {upcomingFestivals.map(item => (
-                <View key={`${item.date}-${item.festival?.id}`} style={styles.listRow}>
+                <TouchableOpacity
+                  key={`${item.date}-${item.festival?.id}`}
+                  style={styles.listRow}
+                  onPress={() => openFestivalDetail(item)}
+                >
                   <View style={styles.listContent}>
                     <Text style={styles.listTitle}>{item.festival?.title}</Text>
                     <Text style={styles.listMeta}>
-                      {moment(item.date).format('MMM D, YYYY')} · {item.tithi}
+                      {formatLocalizedDate(item.date, locale)} · {item.tithi}
                     </Text>
                     <Text style={styles.supportingText}>
                       {item.festival?.significance}
                     </Text>
                   </View>
                   <Switch
-                    value={Boolean(appState.festivalAlerts?.[item.festival?.id])}
-                    onValueChange={() => handleFestivalToggle(item.festival?.id)}
+                    value={Boolean(
+                      appState.festivalAlerts?.[item.festival?.id],
+                    )}
+                    onValueChange={() =>
+                      handleFestivalToggle(item.festival?.id)
+                    }
                     trackColor={{ false: '#475569', true: '#e6a84b' }}
                     thumbColor="#fff"
                   />
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{copy.fastingAssistant}</Text>
               <Text style={styles.supportingText}>
-                Track your daily observance and pair it with reminder preferences.
+                Track your daily observance and pair it with reminder
+                preferences.
               </Text>
               <View style={styles.pillRow}>
                 {FASTING_OPTIONS.map(option => (
@@ -784,7 +809,9 @@ const Home = () => {
                     key={option}
                     style={[
                       styles.choicePill,
-                      fastingSelection === option ? styles.choicePillActive : null,
+                      fastingSelection === option
+                        ? styles.choicePillActive
+                        : null,
                     ]}
                     onPress={() => handleFastingChange(option)}
                   >
@@ -796,7 +823,9 @@ const Home = () => {
                           : null,
                       ]}
                     >
-                      {option}
+                      {locale === 'en'
+                        ? option
+                        : translateFastingTitle(option, locale)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -812,7 +841,9 @@ const Home = () => {
                       key={city.id}
                       style={[
                         styles.cityChip,
-                        activeCity?.id === city.id ? styles.cityChipActive : null,
+                        activeCity?.id === city.id
+                          ? styles.cityChipActive
+                          : null,
                       ]}
                       onPress={() => handleSelectCity(city)}
                     >
@@ -833,7 +864,7 @@ const Home = () => {
               <TextInput
                 value={newCityName}
                 onChangeText={setNewCityName}
-                placeholder="City name"
+                placeholder={copy.cityName}
                 placeholderTextColor="#7f8ca5"
                 style={styles.input}
               />
@@ -841,7 +872,7 @@ const Home = () => {
                 <TextInput
                   value={newCityLat}
                   onChangeText={setNewCityLat}
-                  placeholder="Latitude"
+                  placeholder={copy.latitude}
                   placeholderTextColor="#7f8ca5"
                   style={[styles.input, styles.halfInput]}
                   keyboardType="numeric"
@@ -849,24 +880,27 @@ const Home = () => {
                 <TextInput
                   value={newCityLon}
                   onChangeText={setNewCityLon}
-                  placeholder="Longitude"
+                  placeholder={copy.longitude}
                   placeholderTextColor="#7f8ca5"
                   style={[styles.input, styles.halfInput]}
                   keyboardType="numeric"
                 />
               </View>
-              <TouchableOpacity onPress={handleAddCity} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Add City</Text>
+              <TouchableOpacity
+                onPress={handleAddCity}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>{copy.addCity}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{copy.reminderSettings}</Text>
               {[
-                ['navkarsi', 'Navkarsi alerts'],
-                ['sunset', 'Sunset alerts'],
-                ['parna', 'Parna alerts'],
-                ['festival', 'Festival alerts'],
+                ['navkarsi', copy.navkarsiAlerts],
+                ['sunset', copy.sunsetAlerts],
+                ['parna', copy.parnaAlerts],
+                ['festival', copy.festivalAlerts],
               ].map(([key, label]) => (
                 <View key={key} style={styles.listRow}>
                   <Text style={styles.listTitle}>{label}</Text>
@@ -886,7 +920,7 @@ const Home = () => {
                 multiline
                 value={todaysNote}
                 onChangeText={handleNoteChange}
-                placeholder="Write pratikraman notes, tapas reflections, or daily intentions."
+                placeholder={copy.notesPlaceholder}
                 placeholderTextColor="#7f8ca5"
                 style={styles.notesInput}
               />
@@ -895,8 +929,8 @@ const Home = () => {
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{copy.yearView}</Text>
               <Text style={styles.supportingText}>
-                Monthly calendar, year festival preview, and date/festival search
-                are available below.
+                Monthly calendar, year festival preview, and date/festival
+                search are available below.
               </Text>
             </View>
 
@@ -904,6 +938,7 @@ const Home = () => {
               <PanchangCalendar
                 lat={dashboard.latitude}
                 lon={dashboard.longitude}
+                locale={locale}
               />
             </View>
           </>
@@ -931,15 +966,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 18,
   },
+  menuButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(10,18,35,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(214,228,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
   hamburgerIcon: {
-    width: 28,
+    width: 22,
     justifyContent: 'space-between',
-    height: 18,
+    height: 16,
   },
   hamburgerLine: {
-    height: 2,
-    backgroundColor: '#fff',
-    borderRadius: 2,
+    height: 2.5,
+    backgroundColor: '#f4f7ff',
+    borderRadius: 999,
+    width: '100%',
   },
   refreshPill: {
     backgroundColor: 'rgba(230,168,75,0.18)',
@@ -1003,7 +1054,7 @@ const styles = StyleSheet.create({
   shareCard: {
     marginHorizontal: 20,
     marginBottom: 12,
-    backgroundColor: '#f4e6c8',
+    backgroundColor: '#efefef',
     borderRadius: 18,
     padding: 18,
   },
@@ -1061,6 +1112,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 19,
     marginTop: 4,
+  },
+  linkText: {
+    color: '#ffd68a',
+    fontWeight: '700',
   },
   detailHighlight: {
     color: '#ffd899',

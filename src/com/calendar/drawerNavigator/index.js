@@ -1,10 +1,11 @@
 import React from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import Splash from '../container/splash';
 import Home from '../container/home';
 import About from '../container/about';
 import QRCodeScreen from '../container/QRCode';
 import PanchangCalendar from '../container/panchangCalendar';
+import SettingsScreen from '../container/settings';
+import FestivalDetailScreen from '../container/festivalDetail';
 import { createStackNavigator } from '@react-navigation/stack';
 import {
   Text,
@@ -35,13 +36,6 @@ function CustomDrawerContent({ navigation }) {
       >
         <Text style={styles.drawerText}>🏠 Home</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.drawerItem}
-        onPress={() => navigation.navigate('Splash')}
-      >
-        <Text style={styles.drawerText}>🚀 Splash</Text>
-      </TouchableOpacity>
       <TouchableOpacity
         style={styles.drawerItem}
         onPress={() => navigation.navigate('Calendar')}
@@ -50,10 +44,18 @@ function CustomDrawerContent({ navigation }) {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.drawerItem}
+        onPress={() => navigation.navigate('Settings')}
+      >
+        <Text style={styles.drawerText}>⚙️ Settings</Text>
+      </TouchableOpacity>
+      {/*
+      <TouchableOpacity
+        style={styles.drawerItem}
         onPress={() => navigation.navigate('QRCodeScreen')}
       >
         <Text style={styles.drawerText}>🚀 QR Code</Text>
       </TouchableOpacity>
+      */}
       <TouchableOpacity
         style={styles.drawerItem}
         onPress={() => navigation.navigate('About')}
@@ -92,14 +94,19 @@ export default function DrawerNavigator() {
         options={{ headerShown: false }}
       />
       <Drawer.Screen
-        name="Splash"
-        component={Splash}
-        options={{ headerShown: false }}
-      />
-      <Drawer.Screen
         name="Calendar"
         component={PanchangCalendar}
         options={{ headerShown: false }}
+      />
+      <Drawer.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <Drawer.Screen
+        name="FestivalDetail"
+        component={FestivalDetailScreen}
+        options={{ headerShown: false, drawerItemStyle: { display: 'none' } }}
       />
       <Drawer.Screen
         name="About"

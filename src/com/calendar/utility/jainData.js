@@ -21,6 +21,15 @@ const FESTIVAL_RULES = [
     title: 'Mahavir Jayanti',
     significance:
       'Birth celebration of Bhagwan Mahavir observed with prayer and seva.',
+    observance:
+      'Devotees often visit derasar, listen to discourses, join processions, and offer seva in remembrance of Mahavir Swami.',
+    reflection:
+      'Focus on ahimsa, aparigraha, self-restraint, and compassion in daily conduct.',
+    highlights: [
+      'Temple visit and peaceful prayer',
+      'Bhagwan Mahavir life reading',
+      'Acts of compassion and seva',
+    ],
     match: ({ moonMasa, paksha, lunarDayNo }) =>
       moonMasa.includes('chaitra') &&
       paksha.includes('shukla') &&
@@ -31,6 +40,15 @@ const FESTIVAL_RULES = [
     title: 'Paryushan Aarambh',
     significance:
       'Beginning of Paryushan, dedicated to introspection, prayer, and tapas.',
+    observance:
+      'This period is usually marked by pratikraman, scripture study, restraint, and a simplified daily routine.',
+    reflection:
+      'Use the opening day to set a sankalp for forgiveness, discipline, and mindful speech.',
+    highlights: [
+      'Begin a pratikraman routine',
+      'Choose a tapas or restraint goal',
+      'Reduce distractions and focus inward',
+    ],
     match: ({ moonMasa, paksha, lunarDayNo }) =>
       moonMasa.includes('bhadra') &&
       paksha.includes('shukla') &&
@@ -41,6 +59,15 @@ const FESTIVAL_RULES = [
     title: 'Samvatsari',
     significance:
       'Day of universal forgiveness and pratikraman with Michhami Dukkadam.',
+    observance:
+      'Many Jains observe an extended pratikraman and seek forgiveness from family, friends, and the wider community.',
+    reflection:
+      'The core spirit is humility, release of ego, and sincere repentance for harm done knowingly or unknowingly.',
+    highlights: [
+      'Samvatsari pratikraman',
+      'Michhami Dukkadam messages',
+      'Deep forgiveness practice',
+    ],
     match: ({ moonMasa, paksha, lunarDayNo }) =>
       moonMasa.includes('bhadra') &&
       paksha.includes('shukla') &&
@@ -51,6 +78,15 @@ const FESTIVAL_RULES = [
     title: 'Diwali (Nirvana Divas)',
     significance:
       'Commemorates Bhagwan Mahavir nirvana and the Jain new year transition.',
+    observance:
+      'Observed with devotion, lamp lighting, scripture reading, and remembrance of Bhagwan Mahavir nirvana.',
+    reflection:
+      'Contemplate liberation, right knowledge, and the light of inner awareness over external celebration.',
+    highlights: [
+      'Mahavir nirvana remembrance',
+      'Deep spiritual reflection',
+      'Scripture reading and lamp lighting',
+    ],
     match: ({ moonMasa, paksha, lunarDayNo }) =>
       (moonMasa.includes('kartika') || moonMasa.includes('kartik')) &&
       paksha.includes('krishna') &&
@@ -61,6 +97,15 @@ const FESTIVAL_RULES = [
     title: 'Gyan Panchami',
     significance:
       'Auspicious day for scriptural reverence, study, and knowledge worship.',
+    observance:
+      'Common observances include cleaning scriptures, recitation, and dedicating time to svadhyaya.',
+    reflection:
+      'Give attention to right knowledge and disciplined learning rather than information without transformation.',
+    highlights: [
+      'Scripture reverence',
+      'Focused svadhyaya',
+      'Study and recitation discipline',
+    ],
     match: ({ moonMasa, paksha, lunarDayNo }) =>
       (moonMasa.includes('kartika') || moonMasa.includes('kartik')) &&
       paksha.includes('shukla') &&
@@ -116,6 +161,23 @@ export const getFestivalMeta = context => {
     id: matchedRule.id,
     title: matchedRule.title,
     significance: matchedRule.significance,
+    observance: matchedRule.observance,
+    reflection: matchedRule.reflection,
+    highlights: matchedRule.highlights || [],
+  };
+};
+
+export const getFestivalById = festivalId => {
+  const matchedRule = FESTIVAL_RULES.find(rule => rule.id === festivalId);
+  if (!matchedRule) return null;
+
+  return {
+    id: matchedRule.id,
+    title: matchedRule.title,
+    significance: matchedRule.significance,
+    observance: matchedRule.observance,
+    reflection: matchedRule.reflection,
+    highlights: matchedRule.highlights || [],
   };
 };
 
