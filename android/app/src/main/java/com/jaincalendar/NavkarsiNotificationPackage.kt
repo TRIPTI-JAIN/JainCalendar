@@ -7,7 +7,10 @@ import com.facebook.react.uimanager.ViewManager
 
 class NavkarsiNotificationPackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-    return listOf(NavkarsiNotificationModule(reactContext))
+    return listOf(
+        NavkarsiNotificationModule(reactContext),
+        DashboardWidgetModule(reactContext),
+    )
   }
 
   override fun createViewManagers(

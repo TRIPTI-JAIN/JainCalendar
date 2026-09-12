@@ -11,6 +11,8 @@ import {
   PermissionsAndroid,
   TextInput,
   Switch,
+  Alert,
+  AppState,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Geolocation from 'react-native-geolocation-service';
@@ -22,14 +24,25 @@ import moment from 'moment';
 import {
   request,
   requestMultiple,
+  check,
   openSettings,
   PERMISSIONS,
   RESULTS,
 } from 'react-native-permissions';
 import Video from 'react-native-video';
-import { getSunriseSunset, getCityFromCoords, addMinutesToSunrise, getQuarterAfterSunrise } from '../utility';
-import PanchangCalendar from './panchangCalendar';
-import { readAppState, writeAppState, getDefaultAppState } from '../utility/appStorage';
+import Icon from 'react-native-vector-icons/Feather';
+import {
+  getSunriseSunset,
+  getCityFromCoords,
+  addMinutesToSunrise,
+  getQuarterAfterSunrise,
+} from '../utility';
+import CollapsibleCard from '../components/CollapsibleCard';
+import {
+  readAppState,
+  writeAppState,
+  getDefaultAppState,
+} from '../utility/appStorage';
 import {
   DEFAULT_CITIES,
   DEFAULT_COORDS,
@@ -42,41 +55,85 @@ import {
   translateDaySummary,
   translateFastingTitle,
 } from '../utility/i18n';
+import {
+  SADHANA_PRACTICES,
+  calculateSadhanaStreak,
+  getCompletedPracticeCount,
+} from '../utility/dailySadhana';
+import {
+  detectTravelChange,
+  getDeviceTimezone,
+  getTravelSignature,
+} from '../utility/travelMode';
 
 const TODAY_KEY = moment().format('YYYY-MM-DD');
 
 const FASTING_OPTIONS = ['None', 'Upvas', 'Ekasana', 'Beasana'];
 
-const makeCityId = label =>
-  String(label || 'city')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || `city-${Date.now()}`;
+const parseDashboardTime = (timeString, baseDate = moment()) => {
+  const parsed = moment(
+    timeString,
+    ['h:mm A', 'hh:mm A', 'H:mm', 'H:mm:ss'],
+    true,
+  );
+  if (!parsed.isValid()) return null;
+  return moment(baseDate)
+    .hour(parsed.hour())
+    .minute(parsed.minute())
+    .second(0)
+    .millisecond(0);
+};
+
+const formatCountdown = (target, now, copy) => {
+  if (!target) return copy.timeUnavailable;
+  const minutes = Math.max(0, target.diff(now, 'minutes'));
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours > 0) {
+    return copy.startsInHours
+      .replace('{hours}', hours)
+      .replace('{minutes}', remainingMinutes);
+  }
+  return copy.startsInMinutes.replace('{minutes}', remainingMinutes);
+};
 
 const Home = () => {
   const navigation = useNavigation();
   const shareCardRef = useRef(null);
+  const travelPromptOpenRef = useRef(false);
+  const dismissedTravelRef = useRef(null);
   const [status, setStatus] = useState('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [locationPermissionBlocked, setLocationPermissionBlocked] =
     useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [usingCachedData, setUsingCachedData] = useState(false);
+  const [dashboardSource, setDashboardSource] = useState('loading');
   const [dashboard, setDashboard] = useState(null);
   const [appState, setAppState] = useState(getDefaultAppState());
-  const [newCityName, setNewCityName] = useState('');
-  const [newCityLat, setNewCityLat] = useState('');
-  const [newCityLon, setNewCityLon] = useState('');
+  const [currentTime, setCurrentTime] = useState(moment());
 
   const locale = appState.locale || 'en';
+  const observanceProfile = appState.observanceProfile;
   const copy = getCopy('home', locale);
-  const activeCity =
+  const selectedCity =
     appState.cities.find(city => city.id === appState.activeCityId) ||
     appState.cities[0] ||
     DEFAULT_CITIES[0];
+  const activeCity = appState.travelMode?.enabled
+    ? appState.travelMode.temporaryCity || selectedCity
+    : selectedCity;
   const todaysNote = appState.notes?.[TODAY_KEY] || '';
   const fastingSelection = appState.fasting?.[TODAY_KEY] || 'None';
+  const todaysSadhana = appState.dailySadhana?.[TODAY_KEY] || {};
+  const sadhanaCompleted = getCompletedPracticeCount(todaysSadhana);
+  const sadhanaStreak = calculateSadhanaStreak(appState.dailySadhana);
+  const dataSourceLabel =
+    dashboardSource === 'live'
+      ? copy.liveData
+      : dashboardSource === 'calculated'
+      ? copy.calculatedData
+      : copy.cachedData;
 
   const upcomingFestivals = useMemo(() => {
     if (!activeCity) return [];
@@ -85,21 +142,83 @@ const Home = () => {
       activeCity.lat || DEFAULT_COORDS.lat,
       activeCity.lon || DEFAULT_COORDS.lon,
       180,
+      observanceProfile,
     )
       .slice(0, 6)
       .map(item => translateDaySummary(item, locale));
-  }, [activeCity, locale]);
+  }, [activeCity, locale, observanceProfile]);
 
   const localizedToday = useMemo(
     () =>
       dashboard?.today ? translateDaySummary(dashboard.today, locale) : null,
     [dashboard, locale],
   );
+  const nextFestivalForWidget = useMemo(() => {
+    if (!upcomingFestivals.length) return null;
+
+    return (
+      upcomingFestivals.find(item => item.date !== dashboard?.today?.date) ||
+      upcomingFestivals[0]
+    );
+  }, [dashboard, upcomingFestivals]);
+
+  const timedEvents = useMemo(() => {
+    if (!dashboard) return [];
+    return [
+      { key: 'navkarsi', label: copy.navkarsi, time: dashboard.navkarsiTime },
+      { key: 'porsi', label: copy.porsi, time: dashboard.porsiTime },
+      { key: 'sunset', label: copy.sunset, time: dashboard.sunset },
+    ].map(event => {
+      const todayTime = parseDashboardTime(event.time, currentTime);
+      const nextTime =
+        todayTime && todayTime.isAfter(currentTime)
+          ? todayTime
+          : todayTime?.clone().add(1, 'day');
+      return { ...event, nextTime };
+    });
+  }, [copy, currentTime, dashboard]);
+
+  const nextReminder = useMemo(
+    () =>
+      timedEvents
+        .filter(event => appState.reminders?.[event.key] && event.nextTime)
+        .sort((a, b) => a.nextTime.valueOf() - b.nextTime.valueOf())[0] || null,
+    [appState.reminders, timedEvents],
+  );
 
   useEffect(() => {
     bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(moment()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (!dashboard || !localizedToday) return;
+
+    const widgetModule = NativeModules.DashboardWidget;
+    if (!widgetModule?.updateWidgetData) return;
+
+    widgetModule.updateWidgetData({
+      cityName: dashboard.cityName,
+      tithi: localizedToday.tithi,
+      navkarsiTime: dashboard.navkarsiTime,
+      festivalTitle:
+        nextFestivalForWidget?.festival?.title ||
+        `${copy.festival}: ${copy.noneToday}`,
+      festivalDate: nextFestivalForWidget
+        ? formatLocalizedDate(nextFestivalForWidget.date, locale)
+        : '',
+      updatedAt: formatLocalizedDate(dashboard.updatedAt, locale, {
+        month: 'short',
+        day: 'numeric',
+      }),
+    });
+  }, [copy, dashboard, locale, localizedToday, nextFestivalForWidget]);
 
   const persistAppState = async nextState => {
     setAppState(nextState);
@@ -181,12 +300,20 @@ const Home = () => {
     return next.getTime();
   };
 
-  const scheduleNotification = async ({ timeString, title, body, daysAhead = 0 }) => {
+  const scheduleNotification = async ({
+    timeString,
+    title,
+    body,
+    daysAhead = 0,
+  }) => {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission || Platform.OS !== 'android') return;
 
     const module = NativeModules.NavkarsiNotification;
-    const triggerAtMillis = parseLocalTimeToNextTimestamp(timeString, daysAhead);
+    const triggerAtMillis = parseLocalTimeToNextTimestamp(
+      timeString,
+      daysAhead,
+    );
     if (!module?.scheduleNotification || !triggerAtMillis) return;
 
     module.scheduleNotification(triggerAtMillis, title, body);
@@ -200,6 +327,14 @@ const Home = () => {
         timeString: payload.navkarsiTime,
         title: 'Navkarsi Reminder',
         body: `${payload.cityName}: Navkarsi starts at ${payload.navkarsiTime}.`,
+      });
+    }
+
+    if (reminders.porsi) {
+      await scheduleNotification({
+        timeString: payload.porsiTime,
+        title: 'Porsi Reminder',
+        body: `${payload.cityName}: Porsi starts at ${payload.porsiTime}.`,
       });
     }
 
@@ -229,15 +364,23 @@ const Home = () => {
     }
   };
 
-  const buildDashboardPayload = async city => {
-    const sunData = await getSunriseSunset(city.lat, city.lon);
-    if (!sunData) {
-      throw new Error('Could not fetch sunrise/sunset for this city.');
-    }
-
-    const today = buildDaySummary(moment(), city.lat, city.lon);
+  const buildLocalDashboardPayload = (city, profile = observanceProfile) => {
+    const today = buildDaySummary(moment(), city.lat, city.lon, profile);
+    const sunData = {
+      sunrise: today.sunriseLabel,
+      sunset: today.sunsetLabel,
+    };
     const navkarsiTime = addMinutesToSunrise(sunData.sunrise);
     const porsiTime = getQuarterAfterSunrise(sunData.sunrise, sunData.sunset);
+
+    const offlineDays = Array.from({ length: 90 }, (_, offset) =>
+      buildDaySummary(
+        moment().add(offset, 'days'),
+        city.lat,
+        city.lon,
+        profile,
+      ),
+    );
 
     return {
       cityId: city.id,
@@ -248,7 +391,14 @@ const Home = () => {
       sunset: sunData.sunset,
       navkarsiTime,
       porsiTime,
+      dataSource: 'calculated',
       updatedAt: new Date().toISOString(),
+      cacheRange: {
+        from: offlineDays[0]?.date,
+        to: offlineDays[offlineDays.length - 1]?.date,
+        totalDays: offlineDays.length,
+      },
+      offlineDays,
       today: {
         ...today,
         sunriseLabel: sunData.sunrise,
@@ -257,9 +407,35 @@ const Home = () => {
     };
   };
 
-  const applyDashboard = payload => {
+  const buildDashboardPayload = async (city, localPayload, profile) => {
+    const fallback = localPayload || buildLocalDashboardPayload(city, profile);
+    const liveSunData = await getSunriseSunset(city.lat, city.lon);
+    if (!liveSunData) return fallback;
+
+    return {
+      ...fallback,
+      sunrise: liveSunData.sunrise,
+      sunset: liveSunData.sunset,
+      navkarsiTime: addMinutesToSunrise(liveSunData.sunrise),
+      porsiTime: getQuarterAfterSunrise(
+        liveSunData.sunrise,
+        liveSunData.sunset,
+      ),
+      dataSource: 'live',
+      updatedAt: new Date().toISOString(),
+      today: {
+        ...fallback.today,
+        sunriseLabel: liveSunData.sunrise,
+        sunsetLabel: liveSunData.sunset,
+      },
+    };
+  };
+
+  const applyDashboard = (payload, source = payload.dataSource || 'live') => {
     setDashboard(payload);
-    setStatus('ready');
+    setDashboardSource(source);
+    setUsingCachedData(source !== 'live');
+    setStatus(source === 'live' ? 'ready' : 'offline');
   };
 
   const bootstrap = async () => {
@@ -268,18 +444,22 @@ const Home = () => {
       ...stored,
       cities: stored.cities.length ? stored.cities : DEFAULT_CITIES,
       activeCityId:
-        stored.activeCityId ||
-        stored.cities?.[0]?.id ||
-        DEFAULT_CITIES[0].id,
+        stored.activeCityId || stored.cities?.[0]?.id || DEFAULT_CITIES[0].id,
     };
 
     await persistAppState(nextState);
-    await loadDashboardForCity(
+    const startupCity =
       nextState.cities.find(city => city.id === nextState.activeCityId) ||
-        nextState.cities[0],
-      nextState,
-      { preferCurrentLocation: true },
-    );
+      nextState.cities[0];
+    const cached = nextState.dashboardCache?.[startupCity.id];
+
+    if (cached) {
+      applyDashboard(cached, 'cache');
+    }
+
+    await loadDashboardForCity(startupCity, nextState, {
+      asRefresh: Boolean(cached),
+    });
   };
 
   const getCurrentLocation = () =>
@@ -290,6 +470,27 @@ const Home = () => {
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     });
+
+  const hasGrantedLocationPermission = async () => {
+    if (Platform.OS === 'ios') {
+      return (
+        (await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE)) === RESULTS.GRANTED
+      );
+    }
+
+    const fine = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+    if (fine === RESULTS.GRANTED) return true;
+    const coarse = await check(PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION);
+    return coarse === RESULTS.GRANTED;
+  };
+
+  const cancelScheduledReminders = async () => {
+    if (Platform.OS !== 'android') return;
+    const module = NativeModules.NavkarsiNotification;
+    if (module?.cancelAllNotifications) {
+      await module.cancelAllNotifications();
+    }
+  };
 
   const saveDashboardCache = async (payload, currentState) => {
     const nextState = {
@@ -328,7 +529,8 @@ const Home = () => {
           const latitude = position.coords.latitude;
           const longitude = position.coords.longitude;
           const liveCityName =
-            (await getCityFromCoords(latitude, longitude)) || 'Current Location';
+            (await getCityFromCoords(latitude, longitude)) ||
+            'Current Location';
 
           resolvedCity = {
             id: 'current-location',
@@ -358,7 +560,21 @@ const Home = () => {
         }
       }
 
-      const payload = await buildDashboardPayload(resolvedCity);
+      const cached = currentState.dashboardCache?.[resolvedCity.id];
+      const activeProfile = (stateOverride || currentState).observanceProfile;
+      const localPayload = cached
+        ? null
+        : buildLocalDashboardPayload(resolvedCity, activeProfile);
+
+      if (localPayload) {
+        applyDashboard(localPayload, 'calculated');
+      }
+
+      const payload = await buildDashboardPayload(
+        resolvedCity,
+        localPayload,
+        activeProfile,
+      );
       applyDashboard(payload);
       await scheduleConfiguredReminders(
         payload,
@@ -380,6 +596,144 @@ const Home = () => {
       setErrorMessage('Unable to load city data. Check location/network.');
     }
   };
+
+  const buildDetectedCity = async coords => ({
+    id: `travel-${coords.lat.toFixed(3)}-${coords.lon.toFixed(3)}`,
+    name:
+      (await getCityFromCoords(coords.lat, coords.lon)) || copy.travelLocation,
+    lat: coords.lat,
+    lon: coords.lon,
+    timezone: getDeviceTimezone(),
+    source: 'travel-detection',
+  });
+
+  const enableTemporaryTravel = async coords => {
+    travelPromptOpenRef.current = false;
+    const temporaryCity = await buildDetectedCity(coords);
+    const nextState = {
+      ...appState,
+      travelMode: {
+        enabled: true,
+        temporaryCity,
+        startedAt: new Date().toISOString(),
+      },
+    };
+    await cancelScheduledReminders();
+    await persistAppState(nextState);
+    await loadDashboardForCity(temporaryCity, nextState, { asRefresh: true });
+  };
+
+  const saveDetectedCity = async coords => {
+    travelPromptOpenRef.current = false;
+    const nextCity = await buildDetectedCity(coords);
+    const nextState = {
+      ...appState,
+      activeCityId: nextCity.id,
+      cities: [
+        nextCity,
+        ...appState.cities.filter(city => city.id !== nextCity.id),
+      ],
+      travelMode: getDefaultAppState().travelMode,
+    };
+    await cancelScheduledReminders();
+    await persistAppState(nextState);
+    await loadDashboardForCity(nextCity, nextState, { asRefresh: true });
+  };
+
+  const endTravelMode = async () => {
+    travelPromptOpenRef.current = false;
+    const nextState = {
+      ...appState,
+      travelMode: getDefaultAppState().travelMode,
+    };
+    await cancelScheduledReminders();
+    await persistAppState(nextState);
+    await loadDashboardForCity(selectedCity, nextState, { asRefresh: true });
+  };
+
+  const detectTravelOnForeground = async () => {
+    if (!dashboard || travelPromptOpenRef.current) return;
+    if (!(await hasGrantedLocationPermission())) return;
+
+    try {
+      const position = await getCurrentLocation();
+      const coords = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+      };
+      const timezone = getDeviceTimezone();
+      const signature = getTravelSignature(coords, timezone);
+      if (dismissedTravelRef.current === signature) return;
+
+      if (appState.travelMode?.enabled) {
+        const homeDistance = detectTravelChange({
+          savedCity: selectedCity,
+          currentCoords: coords,
+          deviceTimezone: timezone,
+          distanceThresholdKm: 25,
+        });
+        if (homeDistance.changed) return;
+
+        travelPromptOpenRef.current = true;
+        Alert.alert(copy.backHomeTitle, copy.backHomeBody, [
+          {
+            text: copy.notNow,
+            style: 'cancel',
+            onPress: () => {
+              dismissedTravelRef.current = signature;
+              travelPromptOpenRef.current = false;
+            },
+          },
+          { text: copy.endTravelMode, onPress: endTravelMode },
+        ]);
+        return;
+      }
+
+      const change = detectTravelChange({
+        savedCity: selectedCity,
+        currentCoords: coords,
+        deviceTimezone: timezone,
+      });
+      if (!change.changed) return;
+
+      travelPromptOpenRef.current = true;
+      const distanceLabel = Math.round(change.distanceKm);
+      Alert.alert(
+        copy.travelDetectedTitle,
+        copy.travelDetectedBody
+          .replace('{city}', selectedCity.name)
+          .replace('{distance}', distanceLabel),
+        [
+          {
+            text: copy.notNow,
+            style: 'cancel',
+            onPress: () => {
+              dismissedTravelRef.current = signature;
+              travelPromptOpenRef.current = false;
+            },
+          },
+          {
+            text: copy.useTemporarily,
+            onPress: () => enableTemporaryTravel(coords),
+          },
+          { text: copy.saveAndUse, onPress: () => saveDetectedCity(coords) },
+        ],
+      );
+    } catch (error) {
+      console.warn('Travel detection unavailable:', error);
+    }
+  };
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') {
+        detectTravelOnForeground();
+      }
+    });
+    return () => subscription.remove();
+    // Re-register when the selected or temporary travel location changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appState.travelMode, dashboard, selectedCity]);
 
   const handleRefresh = async () => {
     if (!activeCity || isRefreshing) return;
@@ -412,57 +766,16 @@ const Home = () => {
     }
   };
 
-  const handleSelectCity = async city => {
-    const nextState = {
-      ...appState,
-      activeCityId: city.id,
-    };
-    await persistAppState(nextState);
-    await loadDashboardForCity(city, nextState);
-  };
-
-  const handleAddCity = async () => {
-    const lat = Number(newCityLat);
-    const lon = Number(newCityLon);
-    if (!newCityName.trim() || Number.isNaN(lat) || Number.isNaN(lon)) {
-      setErrorMessage('Enter a city name, latitude, and longitude.');
-      return;
-    }
-
-    const nextCity = {
-      id: makeCityId(newCityName),
-      name: newCityName.trim(),
-      lat,
-      lon,
-      source: 'manual',
-    };
-    const nextState = {
-      ...appState,
-      activeCityId: nextCity.id,
-      cities: [
-        nextCity,
-        ...appState.cities.filter(city => city.id !== nextCity.id),
-      ],
-    };
-
-    setNewCityName('');
-    setNewCityLat('');
-    setNewCityLon('');
-    await persistAppState(nextState);
-    await loadDashboardForCity(nextCity, nextState);
-  };
-
-  const handleReminderToggle = async key => {
-    const nextState = {
-      ...appState,
-      reminders: {
-        ...appState.reminders,
-        [key]: !appState.reminders[key],
-      },
-    };
-    await persistAppState(nextState);
-    if (dashboard) {
-      await scheduleConfiguredReminders(dashboard, nextState.reminders);
+  const handleUseCurrentLocation = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await loadDashboardForCity(activeCity || DEFAULT_CITIES[0], appState, {
+        asRefresh: true,
+        preferCurrentLocation: true,
+      });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -509,10 +822,16 @@ const Home = () => {
     });
   };
 
-  const handleLocaleChange = async nextLocale => {
+  const handleSadhanaToggle = async practice => {
     await updateAppState({
       ...appState,
-      locale: nextLocale,
+      dailySadhana: {
+        ...appState.dailySadhana,
+        [TODAY_KEY]: {
+          ...todaysSadhana,
+          [practice]: !todaysSadhana[practice],
+        },
+      },
     });
   };
 
@@ -535,7 +854,9 @@ const Home = () => {
       return (
         <View style={styles.card}>
           <ActivityIndicator size="small" color="#fff" />
-          <Text style={[styles.valueText, styles.statusText]}>Loading data...</Text>
+          <Text style={[styles.valueText, styles.statusText]}>
+            Loading data...
+          </Text>
         </View>
       );
     }
@@ -546,7 +867,10 @@ const Home = () => {
           <Text style={styles.cardTitle}>{copy.liveDataError}</Text>
           <Text style={styles.supportingText}>{errorMessage}</Text>
           <View style={styles.inlineRow}>
-            <TouchableOpacity onPress={handleRetry} style={styles.primaryButton}>
+            <TouchableOpacity
+              onPress={handleRetry}
+              style={styles.primaryButton}
+            >
               <Text style={styles.primaryButtonText}>
                 {isRefreshing ? '...' : copy.retry}
               </Text>
@@ -588,56 +912,281 @@ const Home = () => {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.8}
           >
-            <View style={styles.hamburgerIcon}>
-              <View style={styles.hamburgerLine} />
-              <View style={styles.hamburgerLine} />
-              <View style={styles.hamburgerLine} />
-            </View>
+            <Icon name="menu" size={22} color="#f4f7ff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleRefresh} style={styles.refreshPill}>
-            <Text style={styles.refreshPillText}>
-              {isRefreshing ? '...' : copy.refresh}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.hero}>
-          <Text style={styles.heroEyebrow}>{copy.language}</Text>
-          <View style={styles.localeRow}>
-            {['en', 'hi', 'gu'].map(item => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.localeChip,
-                  locale === item ? styles.localeChipActive : null,
-                ]}
-                onPress={() => handleLocaleChange(item)}
-              >
-                <Text
-                  style={[
-                    styles.localeChipText,
-                    locale === item ? styles.localeChipTextActive : null,
-                  ]}
-                >
-                  {item.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.headerBrand}>
+            <Text style={styles.headerEyebrow}>JAIN CALENDAR</Text>
+            <Text style={styles.headerTitle}>{copy.today}</Text>
           </View>
-          <Text style={styles.heroTitle}>{copy.title}</Text>
-          <Text style={styles.heroSubtitle}>
-            {copy.today}, {copy.tithi}, {copy.festival}, reminders, saved
-            cities, notes, and a shareable summary in one place.
-          </Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={handleRefresh}
+              style={styles.headerIconButton}
+            >
+              {isRefreshing ? (
+                <ActivityIndicator size="small" color="#e6a84b" />
+              ) : (
+                <Icon name="refresh-cw" size={19} color="#e6a84b" />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Settings')}
+              style={styles.headerIconButton}
+            >
+              <Icon name="settings" size={19} color="#dce5f3" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {status !== 'ready' && status !== 'offline' ? renderStatusCard() : null}
 
         {dashboard ? (
           <>
+            {appState.travelMode?.enabled ? (
+              <View style={styles.travelBanner}>
+                <Icon name="navigation" size={17} color="#111827" />
+                <View style={styles.travelBannerCopy}>
+                  <Text style={styles.travelBannerTitle}>
+                    {copy.travelMode}
+                  </Text>
+                  <Text style={styles.travelBannerText}>
+                    {copy.travelModeBody.replace('{city}', activeCity.name)}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.travelEndButton}
+                  onPress={endTravelMode}
+                >
+                  <Text style={styles.travelEndText}>{copy.end}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            <View style={styles.todayOverview}>
+              <View style={styles.overviewTopRow}>
+                <View style={styles.listContent}>
+                  <View style={styles.liveRow}>
+                    <View
+                      style={[
+                        styles.liveDot,
+                        usingCachedData && styles.cachedDot,
+                      ]}
+                    />
+                    <Text style={styles.liveText}>{dataSourceLabel}</Text>
+                  </View>
+                  <Text style={styles.overviewDate}>
+                    {formatLocalizedDate(currentTime, locale, {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.locationRow}
+                    onPress={handleUseCurrentLocation}
+                  >
+                    <Icon name="map-pin" size={13} color="#e6a84b" />
+                    <Text style={styles.locationText}>
+                      {dashboard.cityName}
+                    </Text>
+                    <Icon name="navigation" size={11} color="#8290a8" />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={styles.calendarShortcut}
+                  onPress={() => navigation.navigate('Calendar')}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.openCalendar}
+                >
+                  <Icon name="calendar" size={22} color="#111827" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.tithiPanel}>
+                <Text style={styles.tithiEyebrow}>{copy.todayTithi}</Text>
+                <Text style={styles.tithiTitle}>{localizedToday?.tithi}</Text>
+                <Text style={styles.tithiMeta}>
+                  {localizedToday?.paksha} · {localizedToday?.moonMasa}
+                </Text>
+                {localizedToday?.festival ? (
+                  <TouchableOpacity
+                    style={styles.festivalPill}
+                    onPress={() => openFestivalDetail(dashboard.today)}
+                  >
+                    <Icon name="star" size={14} color="#ffe3ad" />
+                    <Text style={styles.festivalPillText}>
+                      {localizedToday.festival.title}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              <View style={styles.timeCardsRow}>
+                {timedEvents.slice(0, 2).map((event, index) => (
+                  <View key={event.key} style={styles.timeCard}>
+                    <View style={styles.timeCardHeader}>
+                      <Icon
+                        name={index === 0 ? 'sunrise' : 'clock'}
+                        size={17}
+                        color="#e6a84b"
+                      />
+                      <Text style={styles.timeCardLabel}>{event.label}</Text>
+                    </View>
+                    <Text style={styles.timeCardValue}>{event.time}</Text>
+                    <Text style={styles.countdownText}>
+                      {formatCountdown(event.nextTime, currentTime, copy)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.quickInfoRow}>
+                <TouchableOpacity
+                  style={styles.quickInfoCard}
+                  onPress={() => navigation.navigate('Settings')}
+                >
+                  <View style={styles.quickInfoIcon}>
+                    <Icon name="bell" size={17} color="#e6a84b" />
+                  </View>
+                  <View style={styles.listContent}>
+                    <Text style={styles.quickInfoLabel}>
+                      {copy.nextReminder}
+                    </Text>
+                    <Text style={styles.quickInfoValue} numberOfLines={1}>
+                      {nextReminder
+                        ? `${nextReminder.label} · ${nextReminder.time}`
+                        : copy.noReminder}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <View style={styles.quickInfoCard}>
+                  <View style={styles.quickInfoIcon}>
+                    <Icon name="check-circle" size={17} color="#e6a84b" />
+                  </View>
+                  <View style={styles.listContent}>
+                    <Text style={styles.quickInfoLabel}>
+                      {copy.dailySadhana}
+                    </Text>
+                    <Text style={styles.quickInfoValue}>
+                      {sadhanaCompleted}/{SADHANA_PRACTICES.length} ·{' '}
+                      {sadhanaStreak} {copy.days}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {nextFestivalForWidget ? (
+                <TouchableOpacity
+                  style={styles.nextFestivalRow}
+                  onPress={() => openFestivalDetail(nextFestivalForWidget)}
+                >
+                  <View style={styles.nextFestivalIcon}>
+                    <Icon name="moon" size={18} color="#111827" />
+                  </View>
+                  <View style={styles.listContent}>
+                    <Text style={styles.quickInfoLabel}>
+                      {copy.nextFestival}
+                    </Text>
+                    <Text style={styles.nextFestivalTitle}>
+                      {nextFestivalForWidget.festival?.title}
+                    </Text>
+                    <Text style={styles.nextFestivalDate}>
+                      {formatLocalizedDate(nextFestivalForWidget.date, locale)}
+                    </Text>
+                  </View>
+                  <Icon name="chevron-right" size={20} color="#e6a84b" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <View style={styles.sadhanaCompact}>
+              <View style={styles.sadhanaHeader}>
+                <View style={styles.listContent}>
+                  <Text style={styles.compactEyebrow}>{copy.dailySadhana}</Text>
+                  <Text style={styles.compactTitle}>
+                    {copy.sadhanaProgress
+                      .replace('{done}', sadhanaCompleted)
+                      .replace('{total}', SADHANA_PRACTICES.length)}
+                  </Text>
+                </View>
+                <View style={styles.streakBadge}>
+                  <Text style={styles.streakNumber}>{sadhanaStreak}</Text>
+                  <Text style={styles.streakLabel}>{copy.dayStreak}</Text>
+                </View>
+              </View>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${
+                        (sadhanaCompleted / SADHANA_PRACTICES.length) * 100
+                      }%`,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.practiceGrid}>
+                {SADHANA_PRACTICES.map(practice => {
+                  const completed = Boolean(todaysSadhana[practice]);
+                  return (
+                    <TouchableOpacity
+                      key={practice}
+                      style={[
+                        styles.practiceCompact,
+                        completed && styles.practiceCompactActive,
+                      ]}
+                      onPress={() => handleSadhanaToggle(practice)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: completed }}
+                    >
+                      <Icon
+                        name={completed ? 'check-circle' : 'circle'}
+                        size={17}
+                        color={completed ? '#111827' : '#8f9db4'}
+                      />
+                      <Text
+                        style={[
+                          styles.practiceCompactText,
+                          completed && styles.practiceCompactTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {copy[practice].split(' / ')[0]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={styles.quickAction}
+                onPress={handleShare}
+              >
+                <Icon name="share-2" size={18} color="#e6a84b" />
+                <Text style={styles.quickActionText}>{copy.shareShort}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickAction}
+                onPress={() => navigation.navigate('Calendar')}
+              >
+                <Icon name="calendar" size={18} color="#e6a84b" />
+                <Text style={styles.quickActionText}>{copy.calendarShort}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickAction}
+                onPress={() => navigation.navigate('Settings')}
+              >
+                <Icon name="sliders" size={18} color="#e6a84b" />
+                <Text style={styles.quickActionText}>{copy.settingsShort}</Text>
+              </TouchableOpacity>
+            </View>
+
             <ViewShot
               ref={shareCardRef}
               options={{ format: 'png', quality: 1 }}
+              style={styles.captureHidden}
             >
               <View style={styles.shareCard}>
                 <Text style={styles.shareDate}>
@@ -648,126 +1197,27 @@ const Home = () => {
                   {localizedToday?.tithi || dashboard.today.tithi} ·{' '}
                   {localizedToday?.paksha || dashboard.today.paksha}
                 </Text>
-                <View style={styles.metricGrid}>
-                  <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>{copy.sunrise}</Text>
-                    <Text style={styles.metricValue}>{dashboard.sunrise}</Text>
-                  </View>
-                  <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>{copy.sunset}</Text>
-                    <Text style={styles.metricValue}>{dashboard.sunset}</Text>
-                  </View>
-                  <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>{copy.navkarsi}</Text>
-                    <Text style={styles.metricValue}>
-                      {dashboard.navkarsiTime}
-                    </Text>
-                  </View>
-                  <View style={styles.metricBox}>
-                    <Text style={styles.metricLabel}>{copy.porsi}</Text>
-                    <Text style={styles.metricValue}>
-                      {dashboard.porsiTime}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.shareFestival}>
+                  {copy.navkarsi}: {dashboard.navkarsiTime} · {copy.porsi}:{' '}
+                  {dashboard.porsiTime}
+                </Text>
                 {localizedToday?.festival ? (
                   <Text style={styles.shareFestival}>
                     {copy.festival}: {localizedToday.festival.title}
                   </Text>
                 ) : null}
                 <Text style={styles.shareFooter}>
-                  {usingCachedData ? 'Offline cache' : 'Live'} · Updated{' '}
+                  {dataSourceLabel} ·{' '}
                   {moment(dashboard.updatedAt).format('MMM D, hh:mm A')}
                 </Text>
               </View>
             </ViewShot>
 
-            <TouchableOpacity
-              onPress={handleShare}
-              style={styles.primaryButton}
+            <CollapsibleCard
+              title={copy.upcomingFestivals}
+              subtitle={copy.festivalSectionHint}
+              icon="star"
             >
-              <Text style={styles.primaryButtonText}>{copy.share}</Text>
-            </TouchableOpacity>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{dashboard.cityName}</Text>
-              <Text style={styles.supportingText}>
-                {usingCachedData
-                  ? 'Offline-first cache in use.'
-                  : 'Live city dashboard.'}
-              </Text>
-              <Text style={styles.supportingText}>
-                Updated{' '}
-                {moment(dashboard.updatedAt).format('MMM D, YYYY hh:mm A')}
-              </Text>
-              {errorMessage ? (
-                <Text style={styles.warningText}>{errorMessage}</Text>
-              ) : null}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{copy.today}</Text>
-              <View style={styles.metricGrid}>
-                <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>{copy.tithi}</Text>
-                  <Text style={styles.metricValue}>
-                    {localizedToday?.tithi}
-                  </Text>
-                </View>
-                <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>{copy.paksha}</Text>
-                  <Text style={styles.metricValue}>
-                    {localizedToday?.paksha}
-                  </Text>
-                </View>
-                <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>{copy.sunrise}</Text>
-                  <Text style={styles.metricValue}>{dashboard.sunrise}</Text>
-                </View>
-                <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>{copy.sunset}</Text>
-                  <Text style={styles.metricValue}>{dashboard.sunset}</Text>
-                </View>
-                <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>{copy.navkarsi}</Text>
-                  <Text style={styles.metricValue}>
-                    {dashboard.navkarsiTime}
-                  </Text>
-                </View>
-                <View style={styles.metricBox}>
-                  <Text style={styles.metricLabel}>{copy.porsi}</Text>
-                  <Text style={styles.metricValue}>{dashboard.porsiTime}</Text>
-                </View>
-              </View>
-              <Text style={styles.supportingText}>
-                {copy.lunarMonth}: {localizedToday?.moonMasa}
-              </Text>
-              {localizedToday?.festival ? (
-                <TouchableOpacity
-                  onPress={() => openFestivalDetail(dashboard.today)}
-                >
-                  <Text style={[styles.supportingText, styles.linkText]}>
-                    {copy.festival}: {localizedToday.festival.title}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.supportingText}>
-                  {copy.festival}: {copy.noneToday}
-                </Text>
-              )}
-              {localizedToday?.festival ? (
-                <Text style={styles.detailHighlight}>
-                  {localizedToday.festival.significance}
-                </Text>
-              ) : null}
-              <Text style={styles.supportingText}>
-                {copy.fastingMarker}:{' '}
-                {localizedToday?.fasting?.title || copy.noMarker}
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{copy.upcomingFestivals}</Text>
               {upcomingFestivals.map(item => (
                 <TouchableOpacity
                   key={`${item.date}-${item.festival?.id}`}
@@ -795,13 +1245,15 @@ const Home = () => {
                   />
                 </TouchableOpacity>
               ))}
-            </View>
+            </CollapsibleCard>
 
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{copy.fastingAssistant}</Text>
+            <CollapsibleCard
+              title={copy.fastingAssistant}
+              subtitle={copy.fastingSectionHint}
+              icon="moon"
+            >
               <Text style={styles.supportingText}>
-                Track your daily observance and pair it with reminder
-                preferences.
+                {copy.fastingSectionBody}
               </Text>
               <View style={styles.pillRow}>
                 {FASTING_OPTIONS.map(option => (
@@ -830,92 +1282,13 @@ const Home = () => {
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
+            </CollapsibleCard>
 
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{copy.cityManager}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.cityRow}>
-                  {appState.cities.map(city => (
-                    <TouchableOpacity
-                      key={city.id}
-                      style={[
-                        styles.cityChip,
-                        activeCity?.id === city.id
-                          ? styles.cityChipActive
-                          : null,
-                      ]}
-                      onPress={() => handleSelectCity(city)}
-                    >
-                      <Text
-                        style={[
-                          styles.cityChipText,
-                          activeCity?.id === city.id
-                            ? styles.cityChipTextActive
-                            : null,
-                        ]}
-                      >
-                        {city.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-              <TextInput
-                value={newCityName}
-                onChangeText={setNewCityName}
-                placeholder={copy.cityName}
-                placeholderTextColor="#7f8ca5"
-                style={styles.input}
-              />
-              <View style={styles.inlineRow}>
-                <TextInput
-                  value={newCityLat}
-                  onChangeText={setNewCityLat}
-                  placeholder={copy.latitude}
-                  placeholderTextColor="#7f8ca5"
-                  style={[styles.input, styles.halfInput]}
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  value={newCityLon}
-                  onChangeText={setNewCityLon}
-                  placeholder={copy.longitude}
-                  placeholderTextColor="#7f8ca5"
-                  style={[styles.input, styles.halfInput]}
-                  keyboardType="numeric"
-                />
-              </View>
-              <TouchableOpacity
-                onPress={handleAddCity}
-                style={styles.secondaryButton}
-              >
-                <Text style={styles.secondaryButtonText}>{copy.addCity}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{copy.reminderSettings}</Text>
-              {[
-                ['navkarsi', copy.navkarsiAlerts],
-                ['sunset', copy.sunsetAlerts],
-                ['parna', copy.parnaAlerts],
-                ['festival', copy.festivalAlerts],
-              ].map(([key, label]) => (
-                <View key={key} style={styles.listRow}>
-                  <Text style={styles.listTitle}>{label}</Text>
-                  <Switch
-                    value={Boolean(appState.reminders[key])}
-                    onValueChange={() => handleReminderToggle(key)}
-                    trackColor={{ false: '#475569', true: '#e6a84b' }}
-                    thumbColor="#fff"
-                  />
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{copy.notes}</Text>
+            <CollapsibleCard
+              title={copy.notes}
+              subtitle={copy.notesSectionHint}
+              icon="edit-3"
+            >
               <TextInput
                 multiline
                 value={todaysNote}
@@ -924,23 +1297,7 @@ const Home = () => {
                 placeholderTextColor="#7f8ca5"
                 style={styles.notesInput}
               />
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{copy.yearView}</Text>
-              <Text style={styles.supportingText}>
-                Monthly calendar, year festival preview, and date/festival
-                search are available below.
-              </Text>
-            </View>
-
-            <View style={styles.calendarWrapper}>
-              <PanchangCalendar
-                lat={dashboard.latitude}
-                lon={dashboard.longitude}
-                locale={locale}
-              />
-            </View>
+            </CollapsibleCard>
           </>
         ) : null}
       </ScrollView>
@@ -960,16 +1317,16 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   header: {
-    height: 60,
+    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
   },
   menuButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: 'rgba(10,18,35,0.55)',
     borderWidth: 1,
     borderColor: 'rgba(214,228,255,0.12)',
@@ -981,6 +1338,51 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
+  headerBrand: { flex: 1, marginLeft: 12 },
+  headerEyebrow: {
+    color: '#e6a84b',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  headerTitle: {
+    color: '#fff7dd',
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  headerActions: { flexDirection: 'row' },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 7,
+    backgroundColor: 'rgba(10,18,35,0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(214,228,255,0.12)',
+  },
+  travelBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    borderRadius: 15,
+    backgroundColor: '#e6a84b',
+  },
+  travelBannerCopy: { flex: 1, marginLeft: 10 },
+  travelBannerTitle: { color: '#111827', fontSize: 12, fontWeight: '900' },
+  travelBannerText: { color: '#3d2b10', fontSize: 10, marginTop: 2 },
+  travelEndButton: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(17,24,39,0.14)',
+  },
+  travelEndText: { color: '#111827', fontSize: 11, fontWeight: '800' },
   hamburgerIcon: {
     width: 22,
     justifyContent: 'space-between',
@@ -1051,9 +1453,262 @@ const styles = StyleSheet.create({
     marginTop: 8,
     maxWidth: '94%',
   },
-  shareCard: {
+  todayOverview: {
     marginHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 8,
+    padding: 18,
+    borderRadius: 24,
+    backgroundColor: 'rgba(10,17,32,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(230,168,75,0.38)',
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  overviewTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#4ade80',
+    marginRight: 6,
+  },
+  cachedDot: { backgroundColor: '#fbbf24' },
+  liveText: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  overviewDate: {
+    color: '#fff7dd',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 5,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  locationText: { color: '#aebbd0', fontSize: 13, marginLeft: 5 },
+  calendarShortcut: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: '#e6a84b',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tithiPanel: {
+    marginTop: 18,
+    padding: 17,
+    borderRadius: 18,
+    backgroundColor: 'rgba(230,168,75,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(230,168,75,0.22)',
+  },
+  tithiEyebrow: {
+    color: '#d5a959',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  tithiTitle: {
+    color: '#fff',
+    fontSize: 25,
+    fontWeight: '900',
+    marginTop: 5,
+  },
+  tithiMeta: { color: '#bdc8d9', fontSize: 13, marginTop: 4 },
+  festivalPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(230,168,75,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 12,
+  },
+  festivalPillText: {
+    color: '#ffe3ad',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  timeCardsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  timeCard: {
+    width: '48.5%',
+    backgroundColor: '#151f34',
+    borderRadius: 17,
+    padding: 14,
+  },
+  timeCardHeader: { flexDirection: 'row', alignItems: 'center' },
+  timeCardLabel: {
+    color: '#aebbd0',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 7,
+  },
+  timeCardValue: {
+    color: '#fff',
+    fontSize: 19,
+    fontWeight: '900',
+    marginTop: 10,
+  },
+  countdownText: { color: '#d5a959', fontSize: 11, marginTop: 4 },
+  quickInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  quickInfoCard: {
+    width: '48.5%',
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 11,
+    borderRadius: 16,
+    backgroundColor: 'rgba(21,31,52,0.78)',
+  },
+  quickInfoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    backgroundColor: 'rgba(230,168,75,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  quickInfoLabel: {
+    color: '#8795ac',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  quickInfoValue: {
+    color: '#f0f4fa',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  nextFestivalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    borderRadius: 17,
+    padding: 13,
+    backgroundColor: 'rgba(230,168,75,0.10)',
+  },
+  nextFestivalIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: '#e6a84b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+  },
+  nextFestivalTitle: {
+    color: '#fff7dd',
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  nextFestivalDate: { color: '#aebbd0', fontSize: 11, marginTop: 2 },
+  sadhanaCompact: {
+    marginHorizontal: 20,
+    marginTop: 4,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(12,18,33,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(230,168,75,0.35)',
+  },
+  compactEyebrow: {
+    color: '#e6a84b',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  compactTitle: {
+    color: '#fff7dd',
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  practiceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  practiceCompact: {
+    width: '48.5%',
+    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginTop: 8,
+    borderRadius: 12,
+    backgroundColor: '#172238',
+  },
+  practiceCompactActive: { backgroundColor: '#e6a84b' },
+  practiceCompactText: {
+    flex: 1,
+    color: '#dce4f0',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 7,
+  },
+  practiceCompactTextActive: { color: '#111827' },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginTop: 12,
+  },
+  quickAction: {
+    width: '31.5%',
+    height: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+    backgroundColor: 'rgba(12,18,33,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(104,122,156,0.3)',
+  },
+  quickActionText: {
+    color: '#e8edf6',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  captureHidden: {
+    position: 'absolute',
+    left: -1000,
+    top: 0,
+    width: 360,
+  },
+  shareCard: {
+    width: 360,
     backgroundColor: '#efefef',
     borderRadius: 18,
     padding: 18,
@@ -1257,6 +1912,28 @@ const styles = StyleSheet.create({
   cityChipTextActive: {
     color: '#111827',
   },
+  locationButton: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(230,168,75,0.5)',
+    backgroundColor: 'rgba(230,168,75,0.08)',
+  },
+  locationButtonText: {
+    color: '#ffe1a8',
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  cacheRangeText: {
+    color: '#8290a8',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 10,
+  },
   input: {
     backgroundColor: '#18233a',
     color: '#fff',
@@ -1280,5 +1957,85 @@ const styles = StyleSheet.create({
   calendarWrapper: {
     marginHorizontal: 14,
     marginTop: 8,
+  },
+  sadhanaCard: {
+    borderColor: 'rgba(230,168,75,0.55)',
+  },
+  sadhanaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  streakBadge: {
+    minWidth: 72,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(230,168,75,0.16)',
+    alignItems: 'center',
+  },
+  streakNumber: {
+    color: '#ffd68a',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  streakLabel: {
+    color: '#ffe6ba',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  progressTrack: {
+    height: 7,
+    marginTop: 16,
+    marginBottom: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: '#29354d',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#e6a84b',
+  },
+  practiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(104,122,156,0.18)',
+  },
+  practiceCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#71809b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  practiceCheckActive: {
+    backgroundColor: '#e6a84b',
+    borderColor: '#e6a84b',
+  },
+  practiceCheckText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  practiceText: {
+    color: '#eef2f8',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  practiceTextComplete: {
+    color: '#aab7cb',
+    textDecorationLine: 'line-through',
+  },
+  sadhanaComplete: {
+    color: '#ffd68a',
+    fontWeight: '700',
+    marginTop: 14,
+    textAlign: 'center',
   },
 });

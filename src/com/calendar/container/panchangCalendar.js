@@ -27,6 +27,7 @@ import {
   getCopy,
   translateDaySummary,
 } from '../utility/i18n';
+import { DEFAULT_OBSERVANCE_PROFILE } from '../utility/observanceProfile';
 
 const width = Dimensions.get('window').width;
 const cellW = Math.max(44, (width - 40) / 7);
@@ -42,24 +43,25 @@ export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [locale, setLocale] = useState(localeProp || 'en');
+  const [observanceProfile, setObservanceProfile] = useState(
+    DEFAULT_OBSERVANCE_PROFILE,
+  );
 
   useFocusEffect(
     React.useCallback(() => {
       let active = true;
 
-      const loadLocale = async () => {
-        if (localeProp) {
-          if (active) setLocale(localeProp);
-          return;
-        }
-
+      const loadPreferences = async () => {
         const state = await readAppState();
         if (active) {
-          setLocale(state.locale || 'en');
+          setLocale(localeProp || state.locale || 'en');
+          setObservanceProfile(
+            state.observanceProfile || DEFAULT_OBSERVANCE_PROFILE,
+          );
         }
       };
 
-      loadLocale();
+      loadPreferences();
 
       return () => {
         active = false;
@@ -76,11 +78,23 @@ export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
     try {
       const latitude = typeof lat === 'number' ? lat : DEFAULT_COORDS.lat;
       const longitude = typeof lon === 'number' ? lon : DEFAULT_COORDS.lon;
-      const nextMonthData = buildMonthData(current, latitude, longitude);
+      const nextMonthData = buildMonthData(
+        current,
+        latitude,
+        longitude,
+        observanceProfile,
+      );
       const todayStr = moment().format('YYYY-MM-DD');
 
       setMonthData(nextMonthData);
-      setYearFestivals(buildYearFestivals(current.year(), latitude, longitude));
+      setYearFestivals(
+        buildYearFestivals(
+          current.year(),
+          latitude,
+          longitude,
+          observanceProfile,
+        ),
+      );
       setSelected(previous => {
         const selectedDate = previous?.date;
         return (
@@ -99,7 +113,7 @@ export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
     } finally {
       setLoading(false);
     }
-  }, [current, lat, lon]);
+  }, [current, lat, lon, observanceProfile]);
 
   const calArr = useMemo(
     () => buildCalendarGrid(current, monthData),
@@ -202,7 +216,9 @@ export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
           <View style={styles.monthRow}>
             <TouchableOpacity
               style={styles.navButton}
-              onPress={() => setCurrent(value => moment(value).subtract(1, 'month'))}
+              onPress={() =>
+                setCurrent(value => moment(value).subtract(1, 'month'))
+              }
             >
               <Text style={styles.navText}>{copy.prev}</Text>
             </TouchableOpacity>
@@ -227,7 +243,10 @@ export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
               returnKeyType="search"
               onSubmitEditing={handleSearch}
             />
-            <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={handleSearch}
+            >
               <Text style={styles.searchButtonText}>{copy.go}</Text>
             </TouchableOpacity>
           </View>
@@ -262,40 +281,42 @@ export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
                 const localizedSelected = translateDaySummary(selected, locale);
                 return (
                   <>
-              <Text style={styles.detailDate}>
-                {formatLocalizedDate(selected.date, locale, {
-                  weekday: 'long',
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </Text>
-              <Text style={styles.detailText}>
-                {copy.tithi}: {localizedSelected.tithi}
-              </Text>
-              <Text style={styles.detailText}>
-                {copy.paksha}: {localizedSelected.paksha}
-              </Text>
-              <Text style={styles.detailText}>
-                {copy.lunarMonth}: {localizedSelected.moonMasa}
-              </Text>
-              <Text style={styles.detailText}>
-                {copy.sunrise}: {selected.sunriseLabel}
-              </Text>
-              <Text style={styles.detailText}>
-                {copy.sunset}: {selected.sunsetLabel}
-              </Text>
-              {localizedSelected.festival ? (
-                <TouchableOpacity onPress={() => openFestivalDetail(selected)}>
-                  <Text style={styles.detailFest}>
-                    {copy.festival}: {localizedSelected.festival.title}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-              {localizedSelected.fasting ? (
-                <Text style={styles.detailFast}>
-                  {copy.fasting}: {localizedSelected.fasting.title}
-                </Text>
-              ) : null}
+                    <Text style={styles.detailDate}>
+                      {formatLocalizedDate(selected.date, locale, {
+                        weekday: 'long',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                    <Text style={styles.detailText}>
+                      {copy.tithi}: {localizedSelected.tithi}
+                    </Text>
+                    <Text style={styles.detailText}>
+                      {copy.paksha}: {localizedSelected.paksha}
+                    </Text>
+                    <Text style={styles.detailText}>
+                      {copy.lunarMonth}: {localizedSelected.moonMasa}
+                    </Text>
+                    <Text style={styles.detailText}>
+                      {copy.sunrise}: {selected.sunriseLabel}
+                    </Text>
+                    <Text style={styles.detailText}>
+                      {copy.sunset}: {selected.sunsetLabel}
+                    </Text>
+                    {localizedSelected.festival ? (
+                      <TouchableOpacity
+                        onPress={() => openFestivalDetail(selected)}
+                      >
+                        <Text style={styles.detailFest}>
+                          {copy.festival}: {localizedSelected.festival.title}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {localizedSelected.fasting ? (
+                      <Text style={styles.detailFast}>
+                        {copy.fasting}: {localizedSelected.fasting.title}
+                      </Text>
+                    ) : null}
                   </>
                 );
               })()}
@@ -304,30 +325,31 @@ export default function PanchangCalendar({ lat, lon, locale: localeProp }) {
 
           <View style={styles.yearSection}>
             <Text style={styles.yearTitle}>{copy.yearFestivalView}</Text>
-            {yearFestivals.slice(0, 8).map(item => (
+            {yearFestivals.slice(0, 8).map(item =>
               (() => {
                 const localizedItem = translateDaySummary(item, locale);
                 return (
-              <TouchableOpacity
-                key={`${item.date}-${item.festival?.id}`}
-                style={styles.yearRow}
-                onPress={() => {
-                  openFestivalDetail(item);
-                }}
-              >
-                <View style={styles.yearContent}>
-                  <Text style={styles.yearFestivalName}>
-                    {localizedItem.festival?.title}
-                  </Text>
-                  <Text style={styles.yearFestivalMeta}>
-                    {formatLocalizedDate(item.date, locale)} · {localizedItem.tithi}
-                  </Text>
-                </View>
-                <Text style={styles.yearFestivalArrow}>{copy.view}</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    key={`${item.date}-${item.festival?.id}`}
+                    style={styles.yearRow}
+                    onPress={() => {
+                      openFestivalDetail(item);
+                    }}
+                  >
+                    <View style={styles.yearContent}>
+                      <Text style={styles.yearFestivalName}>
+                        {localizedItem.festival?.title}
+                      </Text>
+                      <Text style={styles.yearFestivalMeta}>
+                        {formatLocalizedDate(item.date, locale)} ·{' '}
+                        {localizedItem.tithi}
+                      </Text>
+                    </View>
+                    <Text style={styles.yearFestivalArrow}>{copy.view}</Text>
+                  </TouchableOpacity>
                 );
-              })()
-            ))}
+              })(),
+            )}
           </View>
         </View>
       </ScrollView>
@@ -495,8 +517,18 @@ const styles = StyleSheet.create({
   },
   detailDate: { color: '#fff', fontSize: 17, fontWeight: '800' },
   detailText: { color: '#d2dae8', fontSize: 15, marginTop: 6 },
-  detailFest: { color: '#ffd68a', fontSize: 15, marginTop: 10, fontWeight: '700' },
-  detailFast: { color: '#8df0af', fontSize: 15, marginTop: 8, fontWeight: '700' },
+  detailFest: {
+    color: '#ffd68a',
+    fontSize: 15,
+    marginTop: 10,
+    fontWeight: '700',
+  },
+  detailFast: {
+    color: '#8df0af',
+    fontSize: 15,
+    marginTop: 8,
+    fontWeight: '700',
+  },
   yearSection: {
     marginHorizontal: 14,
     marginBottom: 4,

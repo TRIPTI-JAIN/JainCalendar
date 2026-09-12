@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">JainCalendar</string>
+    <string name="widget_description">Shows today’s tithi, navkarsi, and upcoming festival.</string>
 </resources>

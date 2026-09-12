@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
-  TextInput,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,23 +18,22 @@ import {
 } from '../utility/appStorage';
 import { DEFAULT_CITIES } from '../utility/jainData';
 import { getCopy, getLocaleNameLabel } from '../utility/i18n';
+import CitySearch from '../components/CitySearch';
+import {
+  CALENDAR_REGIONS,
+  TRADITIONS,
+  normalizeObservanceProfile,
+} from '../utility/observanceProfile';
 
 const LOCALES = ['en', 'hi', 'gu'];
-
-const makeCityId = label =>
-  String(label || 'city')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || `city-${Date.now()}`;
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
   const [appState, setAppState] = useState(getDefaultAppState());
-  const [newCityName, setNewCityName] = useState('');
-  const [newCityLat, setNewCityLat] = useState('');
-  const [newCityLon, setNewCityLon] = useState('');
   const copy = getCopy('settings', appState.locale || 'en');
+  const observanceProfile = normalizeObservanceProfile(
+    appState.observanceProfile,
+  );
   const reminderOptions = [
     {
       id: 'navkarsi',
@@ -43,14 +41,29 @@ const SettingsScreen = () => {
         appState.locale === 'hi'
           ? 'नवकारसी रिमाइंडर'
           : appState.locale === 'gu'
-            ? 'નવકારસી રિમાઇન્ડર'
-            : 'Navkarsi Reminder',
+          ? 'નવકારસી રિમાઇન્ડર'
+          : 'Navkarsi Reminder',
       description:
         appState.locale === 'hi'
           ? 'नवकारसी शुरू होने पर अलर्ट दें।'
           : appState.locale === 'gu'
-            ? 'નવકારસી શરૂ થાય ત્યારે અલર્ટ આપો.'
-            : 'Alert when the navkarsi window starts.',
+          ? 'નવકારસી શરૂ થાય ત્યારે અલર્ટ આપો.'
+          : 'Alert when the navkarsi window starts.',
+    },
+    {
+      id: 'porsi',
+      label:
+        appState.locale === 'hi'
+          ? 'पोरसी रिमाइंडर'
+          : appState.locale === 'gu'
+          ? 'પોરસી રિમાઇન્ડર'
+          : 'Porsi Reminder',
+      description:
+        appState.locale === 'hi'
+          ? 'पोरसी शुरू होने पर अलर्ट दें।'
+          : appState.locale === 'gu'
+          ? 'પોરસી શરૂ થાય ત્યારે અલર્ટ આપો.'
+          : 'Alert when the porsi window starts.',
     },
     {
       id: 'sunset',
@@ -58,14 +71,14 @@ const SettingsScreen = () => {
         appState.locale === 'hi'
           ? 'सूर्यास्त रिमाइंडर'
           : appState.locale === 'gu'
-            ? 'સૂર્યાસ્ત રિમાઇન્ડર'
-            : 'Sunset Reminder',
+          ? 'સૂર્યાસ્ત રિમાઇન્ડર'
+          : 'Sunset Reminder',
       description:
         appState.locale === 'hi'
           ? 'दिन समाप्त होने से पहले अलर्ट दें।'
           : appState.locale === 'gu'
-            ? 'દિવસ પૂરું થાય તે પહેલાં અલર્ટ આપો.'
-            : 'Alert before the day closes.',
+          ? 'દિવસ પૂરું થાય તે પહેલાં અલર્ટ આપો.'
+          : 'Alert before the day closes.',
     },
     {
       id: 'parna',
@@ -73,14 +86,14 @@ const SettingsScreen = () => {
         appState.locale === 'hi'
           ? 'पारण रिमाइंडर'
           : appState.locale === 'gu'
-            ? 'પારણા રિમાઇન્ડર'
-            : 'Parna Reminder',
+          ? 'પારણા રિમાઇન્ડર'
+          : 'Parna Reminder',
       description:
         appState.locale === 'hi'
           ? 'अगले उपवास पूर्ण होने के समय के लिए तैयारी करें।'
           : appState.locale === 'gu'
-            ? 'આગામી ઉપવાસ પૂર્ણ સમય માટે તૈયારી કરો.'
-            : 'Prepare for the next fasting completion window.',
+          ? 'આગામી ઉપવાસ પૂર્ણ સમય માટે તૈયારી કરો.'
+          : 'Prepare for the next fasting completion window.',
     },
     {
       id: 'festival',
@@ -88,14 +101,14 @@ const SettingsScreen = () => {
         appState.locale === 'hi'
           ? 'पर्व रिमाइंडर'
           : appState.locale === 'gu'
-            ? 'પર્વ રિમાઇન્ડર'
-            : 'Festival Reminder',
+          ? 'પર્વ રિમાઇન્ડર'
+          : 'Festival Reminder',
       description:
         appState.locale === 'hi'
           ? 'दिन के जैन पर्व का रिमाइंडर दिखाएं।'
           : appState.locale === 'gu'
-            ? 'દિવસના જૈન પર્વનું રિમાઇન્ડર બતાવો.'
-            : 'Show the day’s Jain festival reminder.',
+          ? 'દિવસના જૈન પર્વનું રિમાઇન્ડર બતાવો.'
+          : 'Show the day’s Jain festival reminder.',
     },
   ];
 
@@ -105,9 +118,7 @@ const SettingsScreen = () => {
       ...stored,
       cities: stored.cities.length ? stored.cities : DEFAULT_CITIES,
       activeCityId:
-        stored.activeCityId ||
-        stored.cities?.[0]?.id ||
-        DEFAULT_CITIES[0].id,
+        stored.activeCityId || stored.cities?.[0]?.id || DEFAULT_CITIES[0].id,
     });
   }, []);
 
@@ -129,6 +140,18 @@ const SettingsScreen = () => {
     });
   };
 
+  const handleProfileChange = async (key, value) => {
+    await persist({
+      ...appState,
+      observanceProfile: {
+        ...observanceProfile,
+        [key]: value,
+      },
+      // Festival snapshots depend on this profile and must be regenerated.
+      dashboardCache: {},
+    });
+  };
+
   const handleReminderToggle = async reminderId => {
     await persist({
       ...appState,
@@ -146,32 +169,15 @@ const SettingsScreen = () => {
     });
   };
 
-  const handleAddCity = async () => {
-    const lat = Number(newCityLat);
-    const lon = Number(newCityLon);
-
-    if (!newCityName.trim() || Number.isNaN(lat) || Number.isNaN(lon)) {
-      Alert.alert('Invalid city', 'Enter a valid city name, latitude, and longitude.');
-      return;
-    }
-
-    const nextCity = {
-      id: makeCityId(newCityName),
-      name: newCityName.trim(),
-      lat,
-      lon,
-      source: 'manual',
-    };
-
+  const handleAddCity = async nextCity => {
     await persist({
       ...appState,
       activeCityId: nextCity.id,
-      cities: [nextCity, ...appState.cities.filter(city => city.id !== nextCity.id)],
+      cities: [
+        nextCity,
+        ...appState.cities.filter(city => city.id !== nextCity.id),
+      ],
     });
-
-    setNewCityName('');
-    setNewCityLat('');
-    setNewCityLon('');
   };
 
   const handleRemoveCity = cityId => {
@@ -215,22 +221,28 @@ const SettingsScreen = () => {
   };
 
   const handleClearOfflineCache = () => {
-    Alert.alert('Clear Offline Cache', 'Remove saved dashboard cache for all cities?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear',
-        style: 'destructive',
-        onPress: async () => {
-          await persist({
-            ...appState,
-            dashboardCache: {},
-          });
+    Alert.alert(
+      'Clear Offline Cache',
+      'Remove saved dashboard cache for all cities?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            await persist({
+              ...appState,
+              dashboardCache: {},
+            });
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
-  const activeCity = appState.cities.find(city => city.id === appState.activeCityId);
+  const activeCity = appState.cities.find(
+    city => city.id === appState.activeCityId,
+  );
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -276,6 +288,68 @@ const SettingsScreen = () => {
         </View>
 
         <View style={styles.card}>
+          <Text style={styles.sectionTitle}>{copy.observanceProfile}</Text>
+          <Text style={styles.caption}>{copy.observanceProfileBody}</Text>
+          <Text style={styles.fieldLabel}>{copy.jainTradition}</Text>
+          <View style={styles.optionGrid}>
+            {TRADITIONS.map(option => {
+              const selected = observanceProfile.tradition === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.profileOption,
+                    selected && styles.profileOptionActive,
+                  ]}
+                  onPress={() => handleProfileChange('tradition', option.id)}
+                >
+                  <Text
+                    style={[
+                      styles.profileOptionText,
+                      selected && styles.profileOptionTextActive,
+                    ]}
+                  >
+                    {copy[option.labelKey]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.profileHint}>
+            {copy[`traditionHint_${observanceProfile.tradition}`]}
+          </Text>
+
+          <Text style={styles.fieldLabel}>{copy.calendarPreference}</Text>
+          <View style={styles.optionGrid}>
+            {CALENDAR_REGIONS.map(option => {
+              const selected = observanceProfile.calendarRegion === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.profileOption,
+                    selected && styles.profileOptionActive,
+                  ]}
+                  onPress={() =>
+                    handleProfileChange('calendarRegion', option.id)
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.profileOptionText,
+                      selected && styles.profileOptionTextActive,
+                    ]}
+                  >
+                    {copy[option.labelKey]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.profileHint}>{copy.calendarPreferenceHint}</Text>
+        </View>
+
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>{copy.reminderSettings}</Text>
           {reminderOptions.map(reminder => (
             <View key={reminder.id} style={styles.row}>
@@ -298,8 +372,8 @@ const SettingsScreen = () => {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{copy.savedCities}</Text>
           <Text style={styles.caption}>
-            {copy.activeCity}: {activeCity?.name || 'None'} · {appState.cities.length}{' '}
-            {copy.saved}
+            {copy.activeCity}: {activeCity?.name || 'None'} ·{' '}
+            {appState.cities.length} {copy.saved}
           </Text>
           {appState.cities.map(city => (
             <View key={city.id} style={styles.cityRow}>
@@ -326,34 +400,11 @@ const SettingsScreen = () => {
             </View>
           ))}
 
-          <TextInput
-            value={newCityName}
-            onChangeText={setNewCityName}
-            placeholder={copy.cityName}
-            placeholderTextColor="#7f8ca5"
-            style={styles.input}
+          <CitySearch
+            locale={appState.locale || 'en'}
+            copy={copy}
+            onSelect={handleAddCity}
           />
-          <View style={styles.inlineInputs}>
-            <TextInput
-              value={newCityLat}
-              onChangeText={setNewCityLat}
-              placeholder={copy.latitude}
-              placeholderTextColor="#7f8ca5"
-              keyboardType="numeric"
-              style={[styles.input, styles.halfInput]}
-            />
-            <TextInput
-              value={newCityLon}
-              onChangeText={setNewCityLon}
-              placeholder={copy.longitude}
-              placeholderTextColor="#7f8ca5"
-              keyboardType="numeric"
-              style={[styles.input, styles.halfInput]}
-            />
-          </View>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleAddCity}>
-            <Text style={styles.primaryButtonText}>{copy.addCity}</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
@@ -458,6 +509,50 @@ const styles = StyleSheet.create({
   },
   pillTextActive: {
     color: '#111827',
+  },
+  fieldLabel: {
+    color: '#dce5f3',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  profileOption: {
+    width: '48.5%',
+    minHeight: 48,
+    borderRadius: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a2740',
+    borderWidth: 1,
+    borderColor: '#2b3b58',
+  },
+  profileOptionActive: {
+    backgroundColor: 'rgba(230,168,75,0.16)',
+    borderColor: '#e6a84b',
+  },
+  profileOptionText: {
+    color: '#c6d1e2',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  profileOptionTextActive: { color: '#ffe2aa' },
+  profileHint: {
+    color: '#8f9db4',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 2,
   },
   row: {
     flexDirection: 'row',

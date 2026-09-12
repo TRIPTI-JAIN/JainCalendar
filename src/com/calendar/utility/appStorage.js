@@ -1,13 +1,21 @@
 import RNFS from 'react-native-fs';
+import { DEFAULT_OBSERVANCE_PROFILE } from './observanceProfile';
 
 const APP_STATE_FILE = `${RNFS.DocumentDirectoryPath}/jain_calendar_app_state.json`;
 
 const DEFAULT_APP_STATE = {
   locale: 'en',
+  observanceProfile: DEFAULT_OBSERVANCE_PROFILE,
   activeCityId: null,
   cities: [],
+  travelMode: {
+    enabled: false,
+    temporaryCity: null,
+    startedAt: null,
+  },
   reminders: {
     navkarsi: true,
+    porsi: false,
     sunset: false,
     parna: false,
     festival: false,
@@ -15,6 +23,7 @@ const DEFAULT_APP_STATE = {
   festivalAlerts: {},
   fasting: {},
   notes: {},
+  dailySadhana: {},
   dashboardCache: {},
 };
 
@@ -45,11 +54,20 @@ export const readAppState = async () => {
         ...getDefaultAppState().reminders,
         ...(parsed?.reminders || {}),
       },
+      observanceProfile: {
+        ...DEFAULT_OBSERVANCE_PROFILE,
+        ...(parsed?.observanceProfile || {}),
+      },
       festivalAlerts: parsed?.festivalAlerts || {},
       fasting: parsed?.fasting || {},
       notes: parsed?.notes || {},
+      dailySadhana: parsed?.dailySadhana || {},
       dashboardCache: parsed?.dashboardCache || {},
       cities: parsed?.cities || [],
+      travelMode: {
+        ...getDefaultAppState().travelMode,
+        ...(parsed?.travelMode || {}),
+      },
     };
   } catch (error) {
     console.error('Failed to read app state:', error);

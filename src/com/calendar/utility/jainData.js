@@ -1,5 +1,6 @@
 import moment from 'moment';
 import { MhahPanchang } from 'mhah-panchang';
+import { normalizeObservanceProfile } from './observanceProfile';
 
 const panchangEngine = new MhahPanchang();
 
@@ -11,6 +12,7 @@ export const DEFAULT_CITIES = [
     name: 'Ahmedabad',
     lat: DEFAULT_COORDS.lat,
     lon: DEFAULT_COORDS.lon,
+    timezone: 'Asia/Kolkata',
     source: 'default',
   },
 ];
@@ -37,6 +39,7 @@ const FESTIVAL_RULES = [
   },
   {
     id: 'paryushan-start',
+    traditions: ['general', 'shwetambar', 'sthanakvasi'],
     title: 'Paryushan Aarambh',
     significance:
       'Beginning of Paryushan, dedicated to introspection, prayer, and tapas.',
@@ -56,6 +59,7 @@ const FESTIVAL_RULES = [
   },
   {
     id: 'samvatsari',
+    traditions: ['general', 'shwetambar', 'sthanakvasi'],
     title: 'Samvatsari',
     significance:
       'Day of universal forgiveness and pratikraman with Michhami Dukkadam.',
@@ -72,6 +76,46 @@ const FESTIVAL_RULES = [
       moonMasa.includes('bhadra') &&
       paksha.includes('shukla') &&
       lunarDayNo === 4,
+  },
+  {
+    id: 'das-lakshan-start',
+    traditions: ['general', 'digambar'],
+    title: 'Das Lakshan Aarambh',
+    significance:
+      'Beginning of the Digambar ten-day observance of the virtues of the soul.',
+    observance:
+      'The ten days emphasize forgiveness, humility, straightforwardness, purity, truth, restraint, austerity, renunciation, non-attachment, and celibacy.',
+    reflection:
+      'Begin with Uttam Kshama—cultivating forgiveness and releasing anger.',
+    highlights: [
+      'Uttam Kshama reflection',
+      'Scripture study and self-restraint',
+      'Begin the ten-day virtue practice',
+    ],
+    match: ({ moonMasa, paksha, lunarDayNo }) =>
+      moonMasa.includes('bhadra') &&
+      paksha.includes('shukla') &&
+      lunarDayNo === 5,
+  },
+  {
+    id: 'anant-chaturdashi',
+    traditions: ['general', 'digambar'],
+    title: 'Anant Chaturdashi',
+    significance:
+      'The concluding day of Das Lakshan and a major day of fasting, worship, and reflection in the Digambar tradition.',
+    observance:
+      'Devotees complete the ten-day contemplation of the supreme virtues with fasting, study, prayer, and forgiveness.',
+    reflection:
+      'Carry the ten virtues beyond the festival into everyday conduct.',
+    highlights: [
+      'Complete Das Lakshan reflections',
+      'Fasting and svadhyay',
+      'Seek and offer forgiveness',
+    ],
+    match: ({ moonMasa, paksha, lunarDayNo }) =>
+      moonMasa.includes('bhadra') &&
+      paksha.includes('shukla') &&
+      lunarDayNo === 14,
   },
   {
     id: 'mahaveer-nirvan',
@@ -148,20 +192,30 @@ const getLunarDayNo = tithiNo => {
   return ((tithiNo - 1) % 15) + 1;
 };
 
-export const getFestivalMeta = context => {
+export const getFestivalMeta = (context, observanceProfile) => {
+  const profile = normalizeObservanceProfile(observanceProfile);
   const normalized = {
     moonMasa: normalize(context.moonMasa),
     paksha: normalize(context.paksha),
     lunarDayNo: context.lunarDayNo,
   };
-  const matchedRule = FESTIVAL_RULES.find(rule => rule.match(normalized));
+  const matchedRule = FESTIVAL_RULES.find(
+    rule =>
+      (!rule.traditions || rule.traditions.includes(profile.tradition)) &&
+      rule.match(normalized),
+  );
   if (!matchedRule) return null;
+
+  const observance =
+    profile.tradition === 'sthanakvasi' && matchedRule.id === 'mahavir-jayanti'
+      ? 'Devotees often join prayer, discourse, scripture study, meditation, and seva in remembrance of Bhagwan Mahavir.'
+      : matchedRule.observance;
 
   return {
     id: matchedRule.id,
     title: matchedRule.title,
     significance: matchedRule.significance,
-    observance: matchedRule.observance,
+    observance,
     reflection: matchedRule.reflection,
     highlights: matchedRule.highlights || [],
   };
@@ -186,7 +240,7 @@ export const getFastingMeta = ({ lunarDayNo }) => {
   return FASTING_MAP[lunarDayNo] || null;
 };
 
-export const buildDaySummary = (dateInput, lat, lon) => {
+export const buildDaySummary = (dateInput, lat, lon, observanceProfile) => {
   const date = moment(dateInput).toDate();
   const calendar = panchangEngine.calendar(date, lat, lon);
   const sun = panchangEngine.sunTimer(date, lat, lon);
@@ -195,7 +249,10 @@ export const buildDaySummary = (dateInput, lat, lon) => {
   const paksha = calendar?.Paksha?.name_en_IN || 'Unknown';
   const moonMasa =
     calendar?.MoonMasa?.name_en_IN || calendar?.Masa?.name_en_IN || 'Unknown';
-  const festival = getFestivalMeta({ moonMasa, paksha, lunarDayNo });
+  const festival = getFestivalMeta(
+    { moonMasa, paksha, lunarDayNo },
+    observanceProfile,
+  );
   const fasting = getFastingMeta({ lunarDayNo });
 
   return {
@@ -214,12 +271,14 @@ export const buildDaySummary = (dateInput, lat, lon) => {
   };
 };
 
-export const buildMonthData = (current, lat, lon) => {
+export const buildMonthData = (current, lat, lon, observanceProfile) => {
   const month = moment(current);
   const rows = [];
 
   for (let day = 1; day <= month.daysInMonth(); day += 1) {
-    rows.push(buildDaySummary(moment(month).date(day), lat, lon));
+    rows.push(
+      buildDaySummary(moment(month).date(day), lat, lon, observanceProfile),
+    );
   }
 
   return rows;
@@ -248,12 +307,18 @@ export const buildUpcomingFestivals = (
   lat,
   lon,
   totalDays = 120,
+  observanceProfile,
 ) => {
   const festivals = [];
   const seen = new Set();
 
   for (let offset = 0; offset < totalDays; offset += 1) {
-    const day = buildDaySummary(moment(startDate).add(offset, 'days'), lat, lon);
+    const day = buildDaySummary(
+      moment(startDate).add(offset, 'days'),
+      lat,
+      lon,
+      observanceProfile,
+    );
     if (!day.festival || seen.has(day.festival.id)) {
       continue;
     }
@@ -264,12 +329,19 @@ export const buildUpcomingFestivals = (
   return festivals;
 };
 
-export const buildYearFestivals = (year, lat, lon) =>
-  buildUpcomingFestivals(moment({ year, month: 0, day: 1 }), lat, lon, 366)
-    .filter(item => moment(item.date).year() === year);
+export const buildYearFestivals = (year, lat, lon, observanceProfile) =>
+  buildUpcomingFestivals(
+    moment({ year, month: 0, day: 1 }),
+    lat,
+    lon,
+    366,
+    observanceProfile,
+  ).filter(item => moment(item.date).year() === year);
 
 export const findDayByQuery = (query, rows) => {
-  const cleaned = String(query || '').trim().toLowerCase();
+  const cleaned = String(query || '')
+    .trim()
+    .toLowerCase();
   if (!cleaned) return null;
 
   return (

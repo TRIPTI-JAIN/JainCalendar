@@ -1,6 +1,6 @@
 // utility.js
+/* global btoa */
 import moment from 'moment';
-import { Alert } from 'react-native';
 
 // Fetch live monthly Panchang
 export async function fetchMonthlyPanchang(
@@ -77,11 +77,16 @@ export function generateCalendarDays(momentDate, panchangData = []) {
   return arr;
 }
 
-export const getSunriseSunset = async (lat, lon) => {
+export const getSunriseSunset = async (lat, lon, timeoutMs = 8000) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(
       `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&formatted=0`,
+      { signal: controller.signal },
     );
+    if (!response.ok) return null;
     const data = await response.json();
     if (data.status === 'OK') {
       // Force a predictable 12-hour format across iOS/Android locales.
@@ -101,17 +106,22 @@ export const getSunriseSunset = async (lat, lon) => {
       return null;
     }
   } catch (error) {
-    console.error('Failed to fetch sunrise/sunset:', error);
+    if (error.name !== 'AbortError') {
+      console.error('Failed to fetch sunrise/sunset:', error);
+    }
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 };
 
 export const getCityFromCoords = async (lat, lng) => {
   const apiKey = 'AIzaSyA-Fyv7jssmCOdmXPoazmvJAnvmI_I954s'; // Replace this
   const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
-  console.log(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
     const data = await response.json();
 
     if (data.status === 'OK') {
@@ -120,15 +130,18 @@ export const getCityFromCoords = async (lat, lng) => {
         component.types.includes('locality'),
       );
       const city = cityObj ? cityObj.long_name : 'Unknown city';
-      console.log('City:', city);
       return city;
     } else {
       console.warn('Geocoding error:', data.status);
       return null;
     }
   } catch (error) {
-    console.error('Error in reverse geocoding:', error);
+    if (error.name !== 'AbortError') {
+      console.error('Error in reverse geocoding:', error);
+    }
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 };
 

@@ -37,11 +37,57 @@ const UI_COPY = {
       latitude: 'Latitude',
       longitude: 'Longitude',
       navkarsiAlerts: 'Navkarsi alerts',
+      porsiAlerts: 'Porsi alerts',
       sunsetAlerts: 'Sunset alerts',
       parnaAlerts: 'Parna alerts',
       festivalAlerts: 'Festival alerts',
       notesPlaceholder:
         'Write pratikraman notes, tapas reflections, or daily intentions.',
+      dailySadhana: 'Daily Sadhana',
+      sadhanaProgress: '{done} of {total} practices complete',
+      dayStreak: 'day streak',
+      samayik: 'Samayik / meditation',
+      pratikraman: 'Pratikraman / reflection',
+      svadhyay: 'Svadhyay / scripture study',
+      seva: 'Seva / act of compassion',
+      sadhanaComplete: 'Today’s sadhana is complete. Jai Jinendra!',
+      todayTithi: "Today's Tithi",
+      liveData: 'Live data',
+      cachedData: 'Saved offline',
+      calculatedData: 'Calculated offline',
+      openCalendar: 'Open calendar',
+      startsInHours: 'In {hours}h {minutes}m',
+      startsInMinutes: 'In {minutes} min',
+      timeUnavailable: 'Time unavailable',
+      nextReminder: 'Next reminder',
+      noReminder: 'No reminders enabled',
+      nextFestival: 'Next festival',
+      days: 'days',
+      useCurrentLocation: 'Use my current location',
+      citySearchPlaceholder: 'Search city or postal code',
+      citySearchError: 'Could not search cities. Check your connection.',
+      noCitiesFound: 'No matching cities found.',
+      offlineReady: '{days} days saved for offline use',
+      shareShort: 'Share',
+      calendarShort: 'Calendar',
+      settingsShort: 'Settings',
+      festivalSectionHint: 'Upcoming dates and festival alerts',
+      fastingSectionHint: 'Record today’s fasting observance',
+      fastingSectionBody: 'Choose the observance you are following today.',
+      notesSectionHint: 'Private reflections saved on this device',
+      travelDetectedTitle: 'Travel change detected',
+      travelDetectedBody:
+        'You appear to be about {distance} km from {city}. Update Jain times and reminders for this location?',
+      travelLocation: 'Travel location',
+      useTemporarily: 'Use temporarily',
+      saveAndUse: 'Save city',
+      notNow: 'Not now',
+      travelMode: 'Travel mode active',
+      travelModeBody: 'Times and reminders use {city}',
+      backHomeTitle: 'Back near your saved city?',
+      backHomeBody: 'End travel mode and restore your saved-city times?',
+      endTravelMode: 'End travel mode',
+      end: 'End',
     },
     calendar: {
       back: '< Back',
@@ -92,6 +138,32 @@ const UI_COPY = {
       journalEntries: 'Journal entries',
       offlineCityCache: 'Offline city cache',
       lastChecked: 'Last checked',
+      observanceProfile: 'Observance Profile',
+      observanceProfileBody:
+        'Personalize festival listings for your Jain tradition. Local sangh dates should take priority when they differ.',
+      jainTradition: 'Jain tradition',
+      traditionGeneral: 'General Jain',
+      traditionShwetambar: 'Shwetambar',
+      traditionDigambar: 'Digambar',
+      traditionSthanakvasi: 'Sthanakvasi',
+      traditionHint_general:
+        'Shows shared festivals plus both Paryushan and Das Lakshan highlights.',
+      traditionHint_shwetambar:
+        'Shows the eight-day Paryushan and Samvatsari observance cycle.',
+      traditionHint_digambar:
+        'Shows the ten-day Das Lakshan cycle through Anant Chaturdashi.',
+      traditionHint_sthanakvasi:
+        'Shows Paryushan and Samvatsari with non-temple-specific observance guidance.',
+      calendarPreference: 'Regional calendar',
+      regionLocation: 'Current location',
+      regionWesternIndia: 'Western India',
+      regionNorthernIndia: 'Northern India',
+      regionLocalSangh: 'Follow local sangh',
+      calendarPreferenceHint:
+        'Calculations continue to use your selected city. This preference records which regional or community calendar you follow.',
+      citySearchPlaceholder: 'Search city or postal code',
+      citySearchError: 'Could not search cities. Check your connection.',
+      noCitiesFound: 'No matching cities found.',
     },
   },
   hi: {
@@ -126,11 +198,56 @@ const UI_COPY = {
       latitude: 'अक्षांश',
       longitude: 'देशांतर',
       navkarsiAlerts: 'नवकारसी अलर्ट',
+      porsiAlerts: 'पोरसी अलर्ट',
       sunsetAlerts: 'सूर्यास्त अलर्ट',
       parnaAlerts: 'पारण अलर्ट',
       festivalAlerts: 'पर्व अलर्ट',
-      notesPlaceholder:
-        'प्रतिक्रमण नोट्स, तप चिंतन या दैनिक संकल्प लिखें।',
+      notesPlaceholder: 'प्रतिक्रमण नोट्स, तप चिंतन या दैनिक संकल्प लिखें।',
+      dailySadhana: 'दैनिक साधना',
+      sadhanaProgress: '{total} में से {done} साधनाएं पूरी',
+      dayStreak: 'दिन की लय',
+      samayik: 'सामायिक / ध्यान',
+      pratikraman: 'प्रतिक्रमण / आत्मचिंतन',
+      svadhyay: 'स्वाध्याय / शास्त्र अध्ययन',
+      seva: 'सेवा / करुणा का कार्य',
+      sadhanaComplete: 'आज की साधना पूर्ण हुई। जय जिनेन्द्र!',
+      todayTithi: 'आज की तिथि',
+      liveData: 'लाइव डेटा',
+      cachedData: 'ऑफलाइन सेव',
+      calculatedData: 'ऑफलाइन गणना',
+      openCalendar: 'कैलेंडर खोलें',
+      startsInHours: '{hours}घं {minutes}मि में',
+      startsInMinutes: '{minutes} मिनट में',
+      timeUnavailable: 'समय उपलब्ध नहीं',
+      nextReminder: 'अगला रिमाइंडर',
+      noReminder: 'कोई रिमाइंडर चालू नहीं',
+      nextFestival: 'अगला पर्व',
+      days: 'दिन',
+      useCurrentLocation: 'मेरी वर्तमान जगह उपयोग करें',
+      citySearchPlaceholder: 'शहर या पिन कोड खोजें',
+      citySearchError: 'शहर नहीं खोज सके। इंटरनेट जांचें।',
+      noCitiesFound: 'कोई शहर नहीं मिला।',
+      offlineReady: '{days} दिन ऑफलाइन उपयोग के लिए सेव',
+      shareShort: 'शेयर',
+      calendarShort: 'कैलेंडर',
+      settingsShort: 'सेटिंग',
+      festivalSectionHint: 'आने वाली तिथियां और पर्व अलर्ट',
+      fastingSectionHint: 'आज का उपवास दर्ज करें',
+      fastingSectionBody: 'आज आप जिस साधना का पालन कर रहे हैं उसे चुनें।',
+      notesSectionHint: 'इस डिवाइस पर सेव निजी चिंतन',
+      travelDetectedTitle: 'यात्रा स्थान मिला',
+      travelDetectedBody:
+        'आप {city} से लगभग {distance} किमी दूर हैं। इस स्थान के अनुसार जैन समय और रिमाइंडर बदलें?',
+      travelLocation: 'यात्रा स्थान',
+      useTemporarily: 'अस्थायी उपयोग',
+      saveAndUse: 'शहर सेव करें',
+      notNow: 'अभी नहीं',
+      travelMode: 'यात्रा मोड चालू',
+      travelModeBody: 'समय और रिमाइंडर {city} के अनुसार हैं',
+      backHomeTitle: 'सेव शहर के पास वापस?',
+      backHomeBody: 'यात्रा मोड बंद करके सेव शहर का समय वापस लाएं?',
+      endTravelMode: 'यात्रा मोड बंद करें',
+      end: 'बंद करें',
     },
     calendar: {
       back: '< वापस',
@@ -181,6 +298,31 @@ const UI_COPY = {
       journalEntries: 'जर्नल प्रविष्टियां',
       offlineCityCache: 'ऑफलाइन सिटी कैश',
       lastChecked: 'अंतिम जांच',
+      observanceProfile: 'पालन प्रोफाइल',
+      observanceProfileBody:
+        'अपनी जैन परंपरा के अनुसार पर्व सूची चुनें। अंतर होने पर स्थानीय संघ की तिथियों को प्राथमिकता दें।',
+      jainTradition: 'जैन परंपरा',
+      traditionGeneral: 'सामान्य जैन',
+      traditionShwetambar: 'श्वेतांबर',
+      traditionDigambar: 'दिगंबर',
+      traditionSthanakvasi: 'स्थानकवासी',
+      traditionHint_general:
+        'साझा पर्वों के साथ पर्युषण और दशलक्षण दोनों दिखाता है।',
+      traditionHint_shwetambar: 'आठ दिवसीय पर्युषण और संवत्सरी पालन दिखाता है।',
+      traditionHint_digambar:
+        'अनंत चतुर्दशी तक दस दिवसीय दशलक्षण पर्व दिखाता है।',
+      traditionHint_sthanakvasi:
+        'मंदिर-विशिष्ट निर्देशों के बिना पर्युषण और संवत्सरी दिखाता है।',
+      calendarPreference: 'क्षेत्रीय कैलेंडर',
+      regionLocation: 'वर्तमान स्थान',
+      regionWesternIndia: 'पश्चिम भारत',
+      regionNorthernIndia: 'उत्तर भारत',
+      regionLocalSangh: 'स्थानीय संघ',
+      calendarPreferenceHint:
+        'गणना आपके चुने शहर से होती है। यह विकल्प आपके क्षेत्रीय या संघ कैलेंडर को दर्ज करता है।',
+      citySearchPlaceholder: 'शहर या पिन कोड खोजें',
+      citySearchError: 'शहर नहीं खोज सके। इंटरनेट जांचें।',
+      noCitiesFound: 'कोई शहर नहीं मिला।',
     },
   },
   gu: {
@@ -215,10 +357,56 @@ const UI_COPY = {
       latitude: 'અક્ષાંશ',
       longitude: 'રેખાંશ',
       navkarsiAlerts: 'નવકારસી અલર્ટ',
+      porsiAlerts: 'પોરસી અલર્ટ',
       sunsetAlerts: 'સૂર્યાસ્ત અલર્ટ',
       parnaAlerts: 'પારણા અલર્ટ',
       festivalAlerts: 'પર્વ અલર્ટ',
       notesPlaceholder: 'પ્રતિક્રમણ નોંધો, તપ વિચાર અથવા દૈનિક સંકલ્પ લખો.',
+      dailySadhana: 'દૈનિક સાધના',
+      sadhanaProgress: '{total} માંથી {done} સાધના પૂર્ણ',
+      dayStreak: 'દિવસની લય',
+      samayik: 'સામાયિક / ધ્યાન',
+      pratikraman: 'પ્રતિક્રમણ / આત્મચિંતન',
+      svadhyay: 'સ્વાધ્યાય / શાસ્ત્ર અભ્યાસ',
+      seva: 'સેવા / કરુણાનું કાર્ય',
+      sadhanaComplete: 'આજની સાધના પૂર્ણ થઈ. જય જિનેન્દ્ર!',
+      todayTithi: 'આજની તિથિ',
+      liveData: 'લાઇવ ડેટા',
+      cachedData: 'ઓફલાઇન સેવ',
+      calculatedData: 'ઓફલાઇન ગણતરી',
+      openCalendar: 'કેલેન્ડર ખોલો',
+      startsInHours: '{hours}ક {minutes}મિ માં',
+      startsInMinutes: '{minutes} મિનિટમાં',
+      timeUnavailable: 'સમય ઉપલબ્ધ નથી',
+      nextReminder: 'આગલું રિમાઇન્ડર',
+      noReminder: 'કોઈ રિમાઇન્ડર ચાલુ નથી',
+      nextFestival: 'આગળનું પર્વ',
+      days: 'દિવસ',
+      useCurrentLocation: 'મારું વર્તમાન સ્થાન વાપરો',
+      citySearchPlaceholder: 'શહેર અથવા પિન કોડ શોધો',
+      citySearchError: 'શહેર શોધી શકાયું નહીં. ઇન્ટરનેટ તપાસો.',
+      noCitiesFound: 'કોઈ શહેર મળ્યું નહીં.',
+      offlineReady: '{days} દિવસ ઓફલાઇન ઉપયોગ માટે સેવ',
+      shareShort: 'શેર',
+      calendarShort: 'કેલેન્ડર',
+      settingsShort: 'સેટિંગ',
+      festivalSectionHint: 'આગામી તારીખો અને પર્વ અલર્ટ',
+      fastingSectionHint: 'આજનું ઉપવાસ પાલન નોંધો',
+      fastingSectionBody: 'આજે તમે જે પાલન કરો છો તે પસંદ કરો.',
+      notesSectionHint: 'આ ઉપકરણ પર સેવ કરેલા ખાનગી વિચારો',
+      travelDetectedTitle: 'મુસાફરી સ્થાન મળ્યું',
+      travelDetectedBody:
+        'તમે {city} થી લગભગ {distance} કિમી દૂર છો. આ સ્થાન માટે જૈન સમય અને રિમાઇન્ડર બદલવા?',
+      travelLocation: 'મુસાફરી સ્થાન',
+      useTemporarily: 'હમણાં માટે વાપરો',
+      saveAndUse: 'શહેર સેવ કરો',
+      notNow: 'હમણાં નહીં',
+      travelMode: 'મુસાફરી મોડ ચાલુ',
+      travelModeBody: 'સમય અને રિમાઇન્ડર {city} મુજબ છે',
+      backHomeTitle: 'સેવ શહેર નજીક પાછા આવ્યા?',
+      backHomeBody: 'મુસાફરી મોડ બંધ કરી સેવ શહેરનો સમય પાછો લાવવો?',
+      endTravelMode: 'મુસાફરી મોડ બંધ કરો',
+      end: 'બંધ',
     },
     calendar: {
       back: '< પાછા',
@@ -269,6 +457,32 @@ const UI_COPY = {
       journalEntries: 'જર્નલ એન્ટ્રીઓ',
       offlineCityCache: 'ઓફલાઇન સિટી કેશ',
       lastChecked: 'છેલ્લી તપાસ',
+      observanceProfile: 'આરાધના પ્રોફાઇલ',
+      observanceProfileBody:
+        'તમારી જૈન પરંપરા મુજબ પર્વ સૂચિ પસંદ કરો. તફાવત હોય ત્યારે સ્થાનિક સંઘની તારીખને પ્રાથમિકતા આપો.',
+      jainTradition: 'જૈન પરંપરા',
+      traditionGeneral: 'સામાન્ય જૈન',
+      traditionShwetambar: 'શ્વેતાંબર',
+      traditionDigambar: 'દિગંબર',
+      traditionSthanakvasi: 'સ્થાનકવાસી',
+      traditionHint_general:
+        'સામાન્ય પર્વો સાથે પર્યુષણ અને દશલક્ષણ બંને બતાવે છે.',
+      traditionHint_shwetambar:
+        'આઠ દિવસનું પર્યુષણ અને સંવત્સરી આરાધના બતાવે છે.',
+      traditionHint_digambar:
+        'અનંત ચતુર્દશી સુધીનું દસ દિવસનું દશલક્ષણ પર્વ બતાવે છે.',
+      traditionHint_sthanakvasi:
+        'મંદિર-વિશિષ્ટ સૂચના વિના પર્યુષણ અને સંવત્સરી બતાવે છે.',
+      calendarPreference: 'પ્રાદેશિક કેલેન્ડર',
+      regionLocation: 'વર્તમાન સ્થાન',
+      regionWesternIndia: 'પશ્ચિમ ભારત',
+      regionNorthernIndia: 'ઉત્તર ભારત',
+      regionLocalSangh: 'સ્થાનિક સંઘ',
+      calendarPreferenceHint:
+        'ગણતરી પસંદ કરેલા શહેર પરથી થાય છે. આ વિકલ્પ તમારા પ્રાદેશિક અથવા સંઘ કેલેન્ડરની નોંધ રાખે છે.',
+      citySearchPlaceholder: 'શહેર અથવા પિન કોડ શોધો',
+      citySearchError: 'શહેર શોધી શકાયું નહીં. ઇન્ટરનેટ તપાસો.',
+      noCitiesFound: 'કોઈ શહેર મળ્યું નહીં.',
     },
   },
 };
@@ -279,6 +493,8 @@ const TERM_TRANSLATIONS = {
       'Mahavir Jayanti': 'महावीर जयंती',
       'Paryushan Aarambh': 'पर्युषण आरंभ',
       Samvatsari: 'संवत्सरी',
+      'Das Lakshan Aarambh': 'दशलक्षण आरंभ',
+      'Anant Chaturdashi': 'अनंत चतुर्दशी',
       'Diwali (Nirvana Divas)': 'दीवाली (निर्वाण दिवस)',
       'Gyan Panchami': 'ज्ञान पंचमी',
     },
@@ -328,6 +544,8 @@ const TERM_TRANSLATIONS = {
       'Mahavir Jayanti': 'મહાવીર જયંતી',
       'Paryushan Aarambh': 'પર્યુષણ આરંભ',
       Samvatsari: 'સંવત્સરી',
+      'Das Lakshan Aarambh': 'દશલક્ષણ આરંભ',
+      'Anant Chaturdashi': 'અનંત ચતુર્દશી',
       'Diwali (Nirvana Divas)': 'દિવાળી (નિર્વાણ દિવસ)',
       'Gyan Panchami': 'જ્ઞાન પંચમી',
     },
@@ -378,47 +596,63 @@ const FESTIVAL_CONTENT_TRANSLATIONS = {
   hi: {
     'mahavir-jayanti': {
       title: 'महावीर जयंती',
-      significance: 'भगवान महावीर के जन्म का पर्व, प्रार्थना और सेवा के साथ मनाया जाता है।',
+      significance:
+        'भगवान महावीर के जन्म का पर्व, प्रार्थना और सेवा के साथ मनाया जाता है।',
       observance:
         'इस दिन भक्त देरासर जाते हैं, प्रवचन सुनते हैं, शोभायात्रा में भाग लेते हैं और सेवा करते हैं।',
       reflection:
         'अहिंसा, अपरिग्रह, संयम और करुणा को अपने आचरण में उतारने का चिंतन करें।',
-      highlights: ['मंदिर दर्शन और शांत प्रार्थना', 'भगवान महावीर जीवन वाचन', 'करुणा और सेवा'],
+      highlights: [
+        'मंदिर दर्शन और शांत प्रार्थना',
+        'भगवान महावीर जीवन वाचन',
+        'करुणा और सेवा',
+      ],
     },
     'paryushan-start': {
       title: 'पर्युषण आरंभ',
-      significance: 'पर्युषण का प्रारंभ, जो आत्मचिंतन, प्रार्थना और तप को समर्पित है।',
+      significance:
+        'पर्युषण का प्रारंभ, जो आत्मचिंतन, प्रार्थना और तप को समर्पित है।',
       observance:
         'इस काल में प्रतिक्रमण, स्वाध्याय, संयम और सरल दिनचर्या का पालन किया जाता है।',
-      reflection:
-        'क्षमा, अनुशासन और वाणी संयम के लिए संकल्प लें।',
-      highlights: ['प्रतिक्रमण प्रारंभ करें', 'तप या संयम का लक्ष्य चुनें', 'ध्यान भीतर की ओर रखें'],
+      reflection: 'क्षमा, अनुशासन और वाणी संयम के लिए संकल्प लें।',
+      highlights: [
+        'प्रतिक्रमण प्रारंभ करें',
+        'तप या संयम का लक्ष्य चुनें',
+        'ध्यान भीतर की ओर रखें',
+      ],
     },
     samvatsari: {
       title: 'संवत्सरी',
-      significance: 'विश्व क्षमा और प्रतिक्रमण का दिन, मिच्छामि दुक्कडम् के भाव के साथ।',
+      significance:
+        'विश्व क्षमा और प्रतिक्रमण का दिन, मिच्छामि दुक्कडम् के भाव के साथ।',
       observance:
         'लोग विस्तृत प्रतिक्रमण करते हैं और परिवार, मित्रों तथा समाज से क्षमा मांगते हैं।',
       reflection:
         'नम्रता, अहंकार त्याग और जाने-अनजाने हुए दोषों के लिए सच्चे पश्चाताप का अभ्यास करें।',
-      highlights: ['संवत्सरी प्रतिक्रमण', 'मिच्छामि दुक्कडम् संदेश', 'गहन क्षमा साधना'],
+      highlights: [
+        'संवत्सरी प्रतिक्रमण',
+        'मिच्छामि दुक्कडम् संदेश',
+        'गहन क्षमा साधना',
+      ],
     },
     'mahaveer-nirvan': {
       title: 'दीवाली (निर्वाण दिवस)',
       significance: 'भगवान महावीर निर्वाण और जैन नववर्ष संक्रमण का स्मरण।',
       observance:
         'इस दिन दीप प्रज्वलन, शास्त्र वाचन और भगवान महावीर निर्वाण का स्मरण किया जाता है।',
-      reflection:
-        'मुक्ति, सम्यक ज्ञान और अंतरज्योति पर चिंतन करें।',
-      highlights: ['निर्वाण स्मरण', 'आध्यात्मिक चिंतन', 'शास्त्र वाचन और दीप प्रज्वलन'],
+      reflection: 'मुक्ति, सम्यक ज्ञान और अंतरज्योति पर चिंतन करें।',
+      highlights: [
+        'निर्वाण स्मरण',
+        'आध्यात्मिक चिंतन',
+        'शास्त्र वाचन और दीप प्रज्वलन',
+      ],
     },
     'gyan-panchami': {
       title: 'ज्ञान पंचमी',
       significance: 'शास्त्र श्रद्धा, अध्ययन और ज्ञान पूजा का शुभ दिन।',
       observance:
         'ग्रंथों की सफाई, पाठ और स्वाध्याय के लिए समय समर्पित किया जाता है।',
-      reflection:
-        'सम्यक ज्ञान और अनुशासित अध्ययन पर ध्यान दें।',
+      reflection: 'सम्यक ज्ञान और अनुशासित अध्ययन पर ध्यान दें।',
       highlights: ['शास्त्र वंदना', 'एकाग्र स्वाध्याय', 'अध्ययन अनुशासन'],
     },
   },
@@ -432,14 +666,17 @@ export const translateText = (value, locale = 'en', category = 'tithi') =>
 export const getCopy = (section, locale = 'en') =>
   UI_COPY[locale]?.[section] || UI_COPY.en[section] || {};
 
-export const getLocaleTag = (locale = 'en') => LOCALE_MAP[locale] || LOCALE_MAP.en;
+export const getLocaleTag = (locale = 'en') =>
+  LOCALE_MAP[locale] || LOCALE_MAP.en;
 
 export const formatLocalizedDate = (
   dateInput,
   locale = 'en',
   options = { month: 'short', day: 'numeric', year: 'numeric' },
 ) =>
-  new Intl.DateTimeFormat(getLocaleTag(locale), options).format(new Date(dateInput));
+  new Intl.DateTimeFormat(getLocaleTag(locale), options).format(
+    new Date(dateInput),
+  );
 
 export const formatMonthYear = (dateInput, locale = 'en') =>
   new Intl.DateTimeFormat(getLocaleTag(locale), {
@@ -453,10 +690,7 @@ export const translateFestival = (festival, locale = 'en') => {
   const content = FESTIVAL_CONTENT_TRANSLATIONS[locale]?.[festival.id];
   const title =
     content?.title ||
-    translateExact(
-      festival.title,
-      TERM_TRANSLATIONS[locale]?.festivalTitles,
-    );
+    translateExact(festival.title, TERM_TRANSLATIONS[locale]?.festivalTitles);
 
   return {
     ...festival,

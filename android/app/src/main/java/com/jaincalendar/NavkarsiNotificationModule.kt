@@ -11,6 +11,9 @@ import com.facebook.react.bridge.ReactMethod
 class NavkarsiNotificationModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
+  private val preferences
+    get() = reactApplicationContext.getSharedPreferences("jain_reminder_alarms", Context.MODE_PRIVATE)
+
   override fun getName(): String = "NavkarsiNotification"
 
   @ReactMethod
@@ -37,5 +40,33 @@ class NavkarsiNotificationModule(reactContext: ReactApplicationContext) :
         triggerTime,
         pendingIntent
     )
+
+    val requestCodes = preferences.getStringSet("request_codes", emptySet())?.toMutableSet()
+        ?: mutableSetOf()
+    requestCodes.add(requestCode.toString())
+    preferences.edit().putStringSet("request_codes", requestCodes).apply()
+  }
+
+  @ReactMethod
+  fun cancelAllNotifications() {
+    val context = reactApplicationContext
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val requestCodes = preferences.getStringSet("request_codes", emptySet()) ?: emptySet()
+
+    requestCodes.forEach { storedCode ->
+      val requestCode = storedCode.toIntOrNull() ?: return@forEach
+      val intent = Intent(context, NavkarsiNotificationReceiver::class.java)
+      val pendingIntent = PendingIntent.getBroadcast(
+          context,
+          requestCode,
+          intent,
+          PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+      if (pendingIntent != null) {
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+      }
+    }
+
+    preferences.edit().remove("request_codes").apply()
   }
 }
